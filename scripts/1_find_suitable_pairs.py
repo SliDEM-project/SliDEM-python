@@ -87,16 +87,23 @@ for i in range(0, len(paths1)):
       # Extract the relative orbit of each image
       orbit_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeDouble('REL_ORBIT')
       orbit_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeDouble('REL_ORBIT')
+      # Extract the polarisation of each image
+      mds1_tx_rx_polar
+      mds2_tx_rx_polar
+      mds3_tx_rx_polar
+      mds4_tx_rx_polar
+      polar_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('transmitterReceiverPolarisation')
+      polar_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('transmitterReceiverPolarisation')
       # Compute statistics for image pairs
       pair_stats = baseline_root_metadata.getElement(master_id).getElement(slave_id)
-      # Extract perperndicular and temporal baseline
+      # Extract perpendicular and temporal baseline
       perp_baseline = pair_stats.getAttributeDouble('Perp Baseline')
       temp_baseline = pair_stats.getAttributeDouble('Temp Baseline')
       
       # Save variables into a dictionary
       dictionary = {
-        "path1": masters[i],
-        "path2": slaves[i],
+        "path1": paths1[i],
+        "path2": paths2[i],
         "id1": productid_p1,
         "id2": productid_p2,
         "timestamp1": timestamp_p1,

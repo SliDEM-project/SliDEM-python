@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Download Sentinel-1 images that fit into a geographical region and 
-within an specific time period
+within an specific time period. 
+Needs credentials to SentinelHub
 
 First version: June 2019
 @authors: 
