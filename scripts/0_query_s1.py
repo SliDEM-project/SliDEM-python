@@ -36,14 +36,17 @@ api = SentinelAPI(
 )
 
 # Set the working directory and search queries
-download_folder = r"PATH/TO/DIR"
+# download_folder = r"PATH/TO/DIR"
+download_folder = r"E:\UniSalzburg\Projects\SliDEM\02_code\SliDEM-python\data"
 os.chdir(download_folder)
 
 # Set date range. 
 # NB: Older images may be "Offline". See Sentinelsat documentation on how to request offline products
-dates = '[2019-09-01T00:00:00.000Z TO 2019-11-10T00:00:00.000Z]' 
+date_start = '2019-07-01'
+date_end = '2019-09-30'
+dates = '['+ date_start +'T00:00:00.000Z TO ' + date_end + 'T00:00:00.000Z]' 
 # GeoJSON file of study area. Any images overlapping this will be downloaded
-footprint = geojson_to_wkt(read_geojson(r"PATH/TO/GEOJSON_FILE.geojson")) 
+footprint = geojson_to_wkt(read_geojson(r"E:\UniSalzburg\Projects\SliDEM\01_data\01_no\aoi\01_Alta.geojson")) 
 
 # Additional parameters can be set here, for example the processing level. 
 # Valid search query keywords can be found at the Copernicus Open Access Hub documentation. 
@@ -58,23 +61,7 @@ products = api.query(
 # Convert list of available images to Pandas DataFrame
 products_df = api.to_dataframe(products)
 
-# Write to Excel file
-products_df.to_excel(os.path.join(download_folder, "Sentinel_images.xlsx"), index = False) 
-print ("Excel file with images to be processed has been written to " + file_name)
-
-# Download all images
-api.download_all(products)
-
-files = os.listdir(download_folder)
-
-# Unzip all products, keeping original name
-pattern = '*.zip'
-for root, dirs, files in os.walk(download_folder):
-  for filename in fnmatch.filter(files, pattern):
-  pathzip = os.path.join(root, filename)
-  
-outzip = os.path.join(download_folder, os.path.splitext(filename)[0])
-print ("now unzipping " + filename)
-zipfile.ZipFile(pathzip).extractall(outzip)
-
-print ("All images downloaded and zipped")
+# Write to CSV file
+file_name = os.path.join(download_folder, "Sentinel_images.csv")
+products_df.to_csv(file_name, index = False) 
+print ("CSV file with images to be processed has been written to " + file_name)

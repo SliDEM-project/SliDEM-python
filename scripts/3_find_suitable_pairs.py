@@ -19,6 +19,8 @@ First version: September 2021
 import snappy as snap
 import os
 import pandas as pd
+import numpy as np
+import datetime
 from itertools import combinations
 
 ### Variables --------
@@ -57,6 +59,9 @@ df = pd.DataFrame()
 for i in range(0, len(paths1)):
   product1 = snap.ProductIO.readProduct(paths1[i])
   product2 = snap.ProductIO.readProduct(paths2[i])
+  # Call products metadata
+  metadata_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata')
+  metadata_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata')
   # import the stack operator from snappy
   create_stack = snap.jpy.get_type('org.esa.s1tbx.insar.gpf.coregistration.CreateStackOp')
   # Use the getBaselines method.
@@ -64,7 +69,7 @@ for i in range(0, len(paths1)):
   # 2nd argument: a product that will receive the baselines as new metadata
   create_stack.getBaselines([product1, product2], product1)
   # Now there is a new piece of metadata in product one called 'Baselines'
-  baseline_root_metadata = product1.getMetadataRoot().getElement('Abstracted_Metadata').getElement('Baselines')
+  baseline_root_metadata = metadata_p1.getElement('Baselines')
   
   # You can now display all the baselines between all master/slave configurations
   # Get IDs of master images
@@ -76,24 +81,17 @@ for i in range(0, len(paths1)):
     # Loop over combinations
     for slave_id in slave_ids:
       # Extract the Product ID of each image 
-      productid_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PRODUCT')
-      productid_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PRODUCT')
+      productid_p1 = metadata_p1.getAttributeString('PRODUCT')
+      productid_p2 = metadata_p2.getAttributeString('PRODUCT')
       # Extract the timestamp of each image
-      timestamp_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PROC_TIME')
-      timestamp_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PROC_TIME')
+      timestamp_p1 = metadata_p1.getAttributeString('PROC_TIME')
+      timestamp_p2 = metadata_p2.getAttributeString('PROC_TIME')
       # Extract the pass of each image
-      pass_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PASS')
-      pass_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('PASS')
+      pass_p1 = metadata_p1.getAttributeString('PASS')
+      pass_p2 = metadata_p2.getAttributeString('PASS')
       # Extract the relative orbit of each image
-      orbit_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeDouble('REL_ORBIT')
-      orbit_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeDouble('REL_ORBIT')
-      # Extract the polarisation of each image
-      mds1_tx_rx_polar
-      mds2_tx_rx_polar
-      mds3_tx_rx_polar
-      mds4_tx_rx_polar
-      polar_p1 = product1.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('transmitterReceiverPolarisation')
-      polar_p2 = product2.getMetadataRoot().getElement('Abstracted_Metadata').getAttributeString('transmitterReceiverPolarisation')
+      orbit_p1 = metadata_p1.getAttributeDouble('REL_ORBIT')
+      orbit_p2 = metadata_p2.getAttributeDouble('REL_ORBIT')
       # Compute statistics for image pairs
       pair_stats = baseline_root_metadata.getElement(master_id).getElement(slave_id)
       # Extract perpendicular and temporal baseline
@@ -114,22 +112,55 @@ for i in range(0, len(paths1)):
         "orbit2": orbit_p2,
         "master": master_id,
         "slave": slave_id,
-        "Temp_baseline": temp_baseline,
-        "Perp_baseline": perp_baseline
+        "temp_baseline": temp_baseline,
+        "perp_baseline": perp_baseline
       }
       
 # Collect variables in a data frame, where each row corresponds to an image pair
 df = df.append(dictionary, ignore_index = True)
 
 # Filter data frame according to recquired characteristics
-# For DEM generation, the pairs should
+# For DEM generation, the pairs should:
 # 1. Have a temporal baseline lower than min_btemp (configures on top of the script)
-df_filtered = df[df["Temp_baseline"] < 0]
-df_filtered = df_filtered[df_filtered["Temp_baseline"] >= min_btemp]
+df_filtered = df[df["temp_baseline"] < 0]
+df_filtered = df_filtered[df_filtered["temp_baseline"] >= min_btemp]
 # 2. The master/slave pair should be from the same orbit
 df_filtered = df_filtered[df_filtered["orbit1"] == df_filtered["orbit2"]]
-# 2. The master/slave pair should be from the same pass
+# 3. The master/slave pair should be from the same pass
 df_filtered = df_filtered[df_filtered["pass1"] == df_filtered["pass2"]]
 
-# Save results to an excel file
-df_filtered.to_excel(os.path.join(data_folder, "data.xlsx"), index = False) 
+## Format new variables to include in string column to pass to PCI Geomatica
+df_filtered['timestamp1'] = pd.to_datetime(df_filtered['timestamp1'])
+df_filtered['timestamp1'] = df_filtered['timestamp1'].dt.strftime('%Y%m%d').astype(int)
+df_filtered['timestamp2'] = pd.to_datetime(df_filtered['timestamp2'])
+df_filtered['timestamp2'] = df_filtered['timestamp2'].dt.strftime('%Y%m%d').astype(int)
+df_filtered['index'] = np.arange(df_filtered.shape[0]).astype(str)
+df_filtered['timedelta'] = pd.to_timedelta(df_filtered['Temp_baseline'] * -1, unit ='D')
+df_filtered['day'] = df_filtered['timedelta'].dt.components['days'].astype(str).str.zfill(2)
+df_filtered['hour'] = df_filtered['timedelta'].dt.components['hours'].astype(str).str.zfill(2)
+df_filtered['min'] = df_filtered['timedelta'].dt.components['minutes'].astype(str).str.zfill(2)
+df_filtered['sec'] = df_filtered['timedelta'].dt.components['seconds'].astype(str).str.zfill(2)
+df_filtered['string'] = (
+  df_filtered['index'] + ';'+
+    df_filtered['path1'] + ';'+
+    df_filtered['timestamp1'].astype(str) + ';'+
+    df_filtered['path2'] + ';'+
+    df_filtered['timestamp2'].astype(str) + ';'+
+    df_filtered['day'] + ':' + df_filtered['hour'] + ':' + df_filtered['min'] + ':' + df_filtered['sec'] + ';' +
+    df_filtered['Perp_baseline'].astype(str)
+)
+
+# Save results to an CSV file
+df_filtered.to_csv(os.path.join(data_folder, "data.csv"), index = False) 
+
+# Extract formatted string for input to PCI Geomatica
+strings = df_filtered["string"].values.tolist()
+
+imagelist = os.path.join(data_folder, "master_slaves_images.txt")
+
+imgtxt = open(imagelist, 'w')
+for string in strings:
+  imgtxt.write("%s\n" % string)
+imgtxt.close()
+
+print("Baseline report written to " + imagelist)
