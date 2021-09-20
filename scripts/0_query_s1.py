@@ -5,7 +5,7 @@ within an specific time period.
 Needs credentials to SentinelHub
 
 First version: June 2019
-@authors: 
+@authors:
   Benjamin Robson, University of Bergen
 """
 
