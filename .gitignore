@@ -5,3 +5,4 @@
 *.Rproj
 data/
 tmp/
+docker_commands.txt
