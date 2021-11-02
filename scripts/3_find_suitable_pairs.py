@@ -135,7 +135,7 @@ df_filtered['timestamp1'] = df_filtered['timestamp1'].dt.strftime('%Y%m%d').asty
 df_filtered['timestamp2'] = pd.to_datetime(df_filtered['timestamp2'])
 df_filtered['timestamp2'] = df_filtered['timestamp2'].dt.strftime('%Y%m%d').astype(int)
 df_filtered['index'] = np.arange(df_filtered.shape[0]).astype(str)
-df_filtered['timedelta'] = pd.to_timedelta(df_filtered['Temp_baseline'] * -1, unit='D')
+df_filtered['timedelta'] = pd.to_timedelta(df_filtered['temp_baseline'] * -1, unit='D')
 df_filtered['day'] = df_filtered['timedelta'].dt.components['days'].astype(str).str.zfill(2)
 df_filtered['hour'] = df_filtered['timedelta'].dt.components['hours'].astype(str).str.zfill(2)
 df_filtered['min'] = df_filtered['timedelta'].dt.components['minutes'].astype(str).str.zfill(2)
@@ -147,7 +147,7 @@ df_filtered['string'] = (
         df_filtered['path2'] + ';' +
         df_filtered['timestamp2'].astype(str) + ';' +
         df_filtered['day'] + ':' + df_filtered['hour'] + ':' + df_filtered['min'] + ':' + df_filtered['sec'] + ';' +
-        df_filtered['Perp_baseline'].astype(str)
+        df_filtered['perp_baseline'].astype(str)
 )
 
 # Save results to an CSV file
