@@ -47,11 +47,11 @@ def back_geocoding(product):
     print('back_geocoding ...')
     parameters.put("demName", "Copernicus 30m Global DEM")
     # parameters.put("externalDEMFile", r"E:\Ben\Norway\SliDEM\Norway\ReferenceData\LiDAR\NDH Alta 2pkt 2018\NDH_Alta_2pkt_2018_DSM.tif")
-    parameters.put("DEM Resampling Method", "BILINEAR_INTERPOLATION")
-    parameters.put("Resampling Type", "BILINEAR_INTERPOLATION")
-    parameters.put("Mask out areas with no elevation", True)
-    parameters.put("Output Deramp and Demod Phase", True)
-    parameters.put("Disable Reramp", False)
+    parameters.put("demResamplingMethod", "BILINEAR_INTERPOLATION")
+    parameters.put("resamplingType", "BILINEAR_INTERPOLATION")
+    parameters.put("maskOutAreaWithoutElevation", True)
+    parameters.put("outputDerampDemodPhase", True)
+    parameters.put("disableReramp", False)
     return GPF.createProduct("Back-Geocoding", parameters, product)
 
 
@@ -129,26 +129,19 @@ def goldstein_phasefiltering(product):
 def SNAPHU_export(product, SNAPHU_exp_folder, tiles):
     parameters = HashMap()
     parameters.put('targetFolder', SNAPHU_exp_folder)  #
-    parameters.put('statCostMode', 'TOPO')
+    parameters.put('statCostMode', 'SMOOTH')
+    parameters.put('initMethod', 'MCF')
     parameters.put('numberOfTileCols', tiles)
     parameters.put('numberOfTileRows', tiles)
     parameters.put('rowOverlap', 200)
     parameters.put('colOverlap', 200)
+    parameters.put('numberOfProcessors', 4)
+    parameters.put('tileCostThreshold', 500)
     output = GPF.createProduct('SnaphuExport', parameters, product)
     ProductIO.writeProduct(output, SNAPHU_exp_folder, 'Snaphu')
     return (output)
 
 def snaphu_unwrapping(SNAPHU_exp_folder):
-    # parameters = HashMap()
-    # parameters.put('targetProductFile', target_Product_File)  # from SNAPHU_export
-    # parameters.put('outputFolder', outFolder)
-    # parameters.put('copyOutputAndDelete', 'Snaphu-unwrapping-after.vm')
-    # parameters.put('copyFilesTemplate', 'Snaphu-unwrapping-before.vm')
-    # product = GPF.createProduct('snaphu-unwrapping', parameters, product)
-
-
-    #####
-    # ProductIO.writeProduct(result_SNE, temp_path, "Snaphu")
     infile = os.path.join(SNAPHU_exp_folder, "snaphu.conf")
     with open(str(infile)) as lines:
         line = lines.readlines()[6]
@@ -172,9 +165,9 @@ def snaphu_unwrapping(SNAPHU_exp_folder):
     # result_SI = GPF.createProduct("SnaphuImport", parameters, snaphu_files)
     # result_PD = GPF.createProduct("PhaseToDisplacement", parameters, result_SI)
     # outpath = os.path.join(path2zipfolder, 'DisplacementVert')
-    # # ProductIO.writeProduct(outpath, filename + '.dim', 'BEAM-DIMAP')
-    # ProductIO.writeProduct(result_PD, outpath, "BEAM-DIMAP")
-    print('Phase unwrapping performed successfully …')
+    # # ProductIO.writeProduct(SNAPHU_exp_folder, filename + '.dim', 'BEAM-DIMAP')
+    # ProductIO.writeProduct(result_PD, SNAPHU_exp_folder, "BEAM-DIMAP")
+    print('Phase unwrapping performed successfully.')
 
 def do_subset_band(source, wkt):
     print('\tSubsetting...')
@@ -209,7 +202,7 @@ def write(product, filename):
 
 
 def write_BEAM_DIMAP_format(product, filename):
-    print('Saving BEAM-DIMAP format...')
+    print('Saving BEAM-DIMAP format.')
     ProductIO.writeProduct(product, filename + '.dim', 'BEAM-DIMAP')
 
 
@@ -288,7 +281,7 @@ def InSAR_pipeline_III(in_filename_III, out_filename_III):
 #                 firstBurstIndex2, lastBurstIndex2, out_filename_pipeline1)
 # InSAR_pipeline_II(out_filename_pipeline1 + ".dim", 6, out_filename_pipeline2)
 # InSAR_pipeline_III(out_filename_pipeline2 + ".dim", out_filename_pipeline3)
-
-# SNAPHU_export(read(out_filename_pipeline2 + "_subset.dim"), snaphu_unwrap_folder, tiles=10)
-SNAPHU_export(read(out_filename_pipeline2 + ".dim"), snaphu_unwrap_folder, tiles=2)
-snaphu_unwrapping(snaphu_unwrap_folder)
+#
+SNAPHU_export(read(out_filename_pipeline2 + "_subset.dim"), snaphu_unwrap_folder, tiles=3)
+# SNAPHU_export(read(out_filename_pipeline2 + ".dim"), snaphu_unwrap_folder, tiles=1)
+# snaphu_unwrapping(snaphu_unwrap_folder)
