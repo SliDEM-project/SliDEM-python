@@ -141,6 +141,8 @@ def SNAPHU_export(product, SNAPHU_exp_folder, tiles):
     ProductIO.writeProduct(output, SNAPHU_exp_folder, 'Snaphu')
     return (output)
 
+
+# Unwrapping code adapted from: https://forum.step.esa.int/t/snaphu-read-error-due-to-non-ascii-unreadable-file/14374/4
 def snaphu_unwrapping(SNAPHU_exp_folder):
     infile = os.path.join(SNAPHU_exp_folder, "snaphu.conf")
     with open(str(infile)) as lines:
@@ -158,16 +160,22 @@ def snaphu_unwrapping(SNAPHU_exp_folder):
     unwrapped_read = ProductIO.readProduct(unwrapped_hdr)
     fn = os.path.join(SNAPHU_exp_folder, "unwrapped_read.dim")
     ProductIO.writeProduct(unwrapped_read, fn, "BEAM-DIMAP")
-    # unwrapped = ProductIO.readProduct(fn)
-    # snaphu_files = jpy.array('org.esa.snap.core.datamodel.Product', 2)
-    # snaphu_files[0] = inputfile
-    # snaphu_files[1] = unwrapped
-    # result_SI = GPF.createProduct("SnaphuImport", parameters, snaphu_files)
-    # result_PD = GPF.createProduct("PhaseToDisplacement", parameters, result_SI)
-    # outpath = os.path.join(path2zipfolder, 'DisplacementVert')
-    # # ProductIO.writeProduct(SNAPHU_exp_folder, filename + '.dim', 'BEAM-DIMAP')
-    # ProductIO.writeProduct(result_PD, SNAPHU_exp_folder, "BEAM-DIMAP")
     print('Phase unwrapping performed successfully.')
+
+
+def phase_to_elev(product, unwrapped, SNAPHU_exp_folder):
+    product = ProductIO.readProduct(product)
+    unwrapped = ProductIO.readProduct(unwrapped)
+    snaphu_files = jpy.array('org.esa.snap.core.datamodel.Product', 2)
+    snaphu_files[0] = product
+    snaphu_files[1] = unwrapped
+    parameters = HashMap()
+    result_SI = GPF.createProduct("SnaphuImport", parameters, snaphu_files)
+    parameters.put("demName", "Copernicus 30 m Global DEM")
+    result_PE = GPF.createProduct("PhaseToElevation", parameters, result_SI)
+    ProductIO.writeProduct(result_PE, SNAPHU_exp_folder, "BEAM-DIMAP")
+    print('Convert to elevation successful.')
+
 
 def do_subset_band(source, wkt):
     print('\tSubsetting...')
@@ -281,7 +289,10 @@ def InSAR_pipeline_III(in_filename_III, out_filename_III):
 #                 firstBurstIndex2, lastBurstIndex2, out_filename_pipeline1)
 # InSAR_pipeline_II(out_filename_pipeline1 + ".dim", 6, out_filename_pipeline2)
 # InSAR_pipeline_III(out_filename_pipeline2 + ".dim", out_filename_pipeline3)
-#
-SNAPHU_export(read(out_filename_pipeline2 + "_subset.dim"), snaphu_unwrap_folder, tiles=3)
+
+# SNAPHU_export(read(out_filename_pipeline2 + "_subset.dim"), snaphu_unwrap_folder, tiles=3)
 # SNAPHU_export(read(out_filename_pipeline2 + ".dim"), snaphu_unwrap_folder, tiles=1)
 # snaphu_unwrapping(snaphu_unwrap_folder)
+phase_to_elev(out_filename_pipeline2 + "_subset.dim",
+              os.path.join(snaphu_unwrap_folder, "unwrapped_read.dim"),
+              snaphu_unwrap_folder)
