@@ -1,0 +1,3 @@
+sentinelsat
+python-dotenv
+asf_search

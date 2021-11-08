@@ -18,7 +18,7 @@ docker build -t snap-8 .
     - I recommend having a data folder where all the data can be included and through the volume, it can also be accessed inside docker. 
     
 ```
-docker run -it --entrypoint /bin/bash --name test-snap --memory="8g" -v D:/SliDEM/SliDEM-python:/home/ snap-8
+docker run -it --entrypoint /bin/bash --name snap --memory="8g" -v D:/SliDEM/SliDEM-python:/home/ snap-8
 ```
 
 4. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the scripts. 

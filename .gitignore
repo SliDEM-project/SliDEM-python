@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+.env
 *.Rproj
 data/
 docker_commands.txt

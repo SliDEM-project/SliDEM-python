@@ -1,10 +1,16 @@
 library(sf)
 library(stringr)
-list = list.files("data/aoi", ".json", full.names = TRUE)
+library(here)
+dir = "path_to_dir"
+list = list.files(here(dir,"data/aoi"), ".json", full.names = TRUE)
 names = str_remove(
-  list.files("data/aoi", ".json", full.names = FALSE),
+  list.files(here(dir,"data/aoi"), ".json", full.names = FALSE),
   ".json"
 )
 read = lapply(list, read_sf)
 proj = lapply(read, st_transform, 4326)
-purrr::map2(proj, names, ~st_write(.x, glue::glue("data/aoi/", .y, ".geojson")))
+purrr::map2(
+  proj,
+  names,
+  ~st_write(.x, here(dir, "data/aoi", glue::glue("{.y}.geojson")))
+)
