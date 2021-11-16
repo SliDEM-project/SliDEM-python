@@ -7,7 +7,8 @@ Recommended: first run an image query using repo = 'asf',
 no credentials needed
 
 First version: June 2019
-Update: November 2021
+Update: November 2021 to use ASF
+
 @authors:
   Benjamin Robson, University of Bergen
   Lorena Abad, University of Salzburg
@@ -16,6 +17,7 @@ Update: November 2021
 # Import modules and activate logging
 import asf_search as asf
 from dotenv import load_dotenv
+import geopandas as gpd
 import logging
 import numpy as np
 import os
@@ -34,19 +36,19 @@ load_dotenv('home/.env')
 os.chdir('home/')
 
 # Set the working directory and search queries
-download_folder = r"data/s1"
-query_result_file = "s1_scenes.csv"
+download_folder = "data/s1"
+query_result_file = "s1_scenes_alta_2019.csv"
 
 # Set date range.
-date_start = '2020-06-10'
-date_end = '2020-06-30'
+date_start = '2019-05-01'
+date_end = '2019-09-30'
 
 # GeoJSON file of study area. Any images overlapping this will be downloaded
 aoi = r"data/aoi/Alta.geojson"
 
 # Set maximum temporal baseline and minimum perpendicular baseline
-btempth = 10
-bperpth = 100
+btempth = 60
+bperpth = 140
 
 # Repository to query, can be sentinelhub or asf
 repo = 'asf'
@@ -87,7 +89,7 @@ if repo == 'sentinelhub':
     products_df = api.to_dataframe(products)
 
     # Write to CSV file
-    file_name = os.path.join(download_folder, tempfile)
+    file_name = os.path.join(download_folder, tempfile1)
     products_df.to_csv(file_name, index=False)
 elif repo == "asf":
     products = asf.geo_search(platform=[asf.PLATFORM.SENTINEL1],
@@ -99,7 +101,7 @@ elif repo == "asf":
     products_df = pd.DataFrame([p.properties for p in products])
 
     # Write to CSV file
-    file_name = os.path.join(download_folder, tempfile)
+    file_name = os.path.join(download_folder, tempfile1)
     products_df.to_csv(file_name, index=False)
 else:
     print("Repository not supported.")
@@ -109,7 +111,7 @@ candidates = []
 
 # Read scene IDs
 # Get ids for filtered images
-geo_prod = pd.read_csv(os.path.join(download_folder, tempfile))
+geo_prod = pd.read_csv(os.path.join(download_folder, tempfile1))
 geo_ids = geo_prod['fileID'].map(lambda fileID: str.replace(fileID, '-SLC', '')).tolist()
 
 # Loop over geo_ids to get matching scenes with desired temporal and perpendicular baselines
@@ -147,8 +149,39 @@ for i in range(0, len(geo_ids)):
 # Merge all dataframes
 candidates_df = pd.concat(candidates)
 
+# Extract dates from IDs
+candidates_df['ReferenceDate'] = pd.to_datetime(
+    candidates_df['ReferenceID'].str.slice(start=17, stop=25),
+    format='%Y%m%d'
+)
+candidates_df['MatchDate'] = pd.to_datetime(
+    candidates_df['MatchID'].str.slice(start=17, stop=25),
+    format='%Y%m%d'
+)
+
 # Check if matched ids are also intersecting with the AOI and dates set
-candidates_df['inAOI'] = candidates_df['MatchID'].isin(geo_ids)
+candidates_df['inAOInDates'] = candidates_df['MatchID'].isin(geo_ids)
+
+# Create column where user can mark if download should be done or not
+candidates_df['Download'] = False
+
+# Create column with link to eo-browser to check for snow conditions using the NDSI
+aoidf = gpd.read_file(aoi)
+aoidf['center'] = aoidf['geometry'].centroid
+aoi_lat = aoidf.center.y.astype(str)[0]
+aoi_lng = aoidf.center.x.astype(str)[0]
+
+candidates_df['EObrowser'] = ('https://apps.sentinel-hub.com/eo-browser/' +
+                              '?zoom=14&lat=' + aoi_lat +
+                              '&lng=' + aoi_lng +
+                              '&themeId=DEFAULT-THEME&datasetId=S2L1C&fromTime=' +
+                              candidates_df['ReferenceDate'].astype(str) +
+                              'T00%3A00%3A00.000Z&toTime=' +
+                              candidates_df['ReferenceDate'].astype(str) +
+                              'T23%3A59%3A59.999Z&layerId=8-NDSI')
+
+# Sort by intersected, True on top
+candidates_df.sort_values(by=['inAOInDates'], inplace=True, ascending=False)
 
 # Write to CSV file and remove temporal files
 file_name = os.path.join(download_folder, query_result_file)

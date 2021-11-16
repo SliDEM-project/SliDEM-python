@@ -35,7 +35,6 @@ def place_order(request, auth):
     order_url = orders_url + '/' + order_id
     return order_url
 
-
 def poll_for_success(order_url, auth, num_loops=50):
     count = 0
     while count < num_loops:
@@ -51,7 +50,6 @@ def poll_for_success(order_url, auth, num_loops=50):
             break
 
         time.sleep(10)
-
 
 def download_order(order_url, auth, overwrite=False):
     r = requests.get(order_url, auth=auth)
@@ -74,7 +72,6 @@ def download_order(order_url, auth, overwrite=False):
             print('{} already exists, skipping {}'.format(path, name))
 
     return dict(zip(results_names, results_paths))
-
 
 data_dir = r"E:\UniSalzburg\Projects\SliDEM\02_code\SliDEM-python\data"
 with open(os.path.join(data_dir, "aoi", str(aoi_def) + ".geojson")) as f:

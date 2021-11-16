@@ -20,10 +20,9 @@ import snappy as snap
 import os
 import pandas as pd
 import numpy as np
-import datetime
 from itertools import combinations
 
-### Variables --------
+# Variables --------
 # Path to directory with Sentinel-1 imagery; change to your directory
 data_folder = r"home/data"
 # Minimum temporal baseline in days (should be negative)
@@ -119,7 +118,7 @@ for i in range(0, len(paths1)):
             # Collect variables in a data frame, where each row corresponds to an image pair
             df = df.append(dictionary, ignore_index=True)
 
-# Filter data frame according to recquired characteristics
+# Filter data frame according to required characteristics
 # For DEM generation, the pairs should:
 # 1. Have a temporal baseline lower than min_btemp (configures on top of the script)
 df_filtered = df[df["temp_baseline"] < 0]
@@ -146,7 +145,8 @@ df_filtered['string'] = (
         df_filtered['timestamp1'].astype(str) + ';' +
         df_filtered['path2'] + ';' +
         df_filtered['timestamp2'].astype(str) + ';' +
-        df_filtered['day'] + ':' + df_filtered['hour'] + ':' + df_filtered['min'] + ':' + df_filtered['sec'] + ';' +
+        df_filtered['day'] + ':' + df_filtered['hour'] + ':' +
+        df_filtered['min'] + ':' + df_filtered['sec'] + ';' +
         df_filtered['perp_baseline'].astype(str)
 )
 
