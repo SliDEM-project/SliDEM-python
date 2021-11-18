@@ -19,7 +19,7 @@ RUN apt install snaphu
 
 # Install GDAL
 RUN apt-get update &&\
-    apt-get install -y binutils libproj-dev gdal-bin
+    apt-get install -y binutils libproj-dev gdal-bin unzip
 
 # Update C env vars so compiler can find gdal
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
@@ -45,12 +45,18 @@ SHELL ["conda", "run", "-n", "demcoreg", "/bin/bash", "-c"]
 RUN mkdir src
 WORKDIR src
 
-# Install pygeotools & demcoreg
+# Install pygeotools, imview & demcoreg
 RUN git clone https://github.com/dshean/pygeotools.git
 RUN python3.6 -m pip install -e pygeotools
 RUN git clone https://github.com/dshean/demcoreg.git
 RUN python3.6 -m pip install -e demcoreg
+RUN git clone https://github.com/dshean/imview.git
+RUN python3.6 -m pip install -e imview
 
-ENV PATH="src/pygeotools/pygeotools:src/demcoreg/demcoreg:$PATH"
+ENV PATH="src/pygeotools/pygeotools:src/demcoreg/demcoreg:src/imview/imview:$PATH"
 
 WORKDIR ..
+
+# Run the demcoreg command to obtain teh glacier outlines inside the container
+SHELL ["conda", "run", "-n", "demcoreg", "/bin/bash", "-c"]
+RUN get_rgi.sh

@@ -22,3 +22,15 @@ docker run -it --entrypoint /bin/bash --name snap --memory="8g" -v D:/SliDEM/Sli
 ```
 
 4. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the scripts. 
+
+5. Using `demcoreg`:
+   - Given the different dependencies for this module, you should use the virtual environment created for it. 
+   - Here are some commands useful to activate and deactivate the environment:
+
+```
+# to activate:
+source activate demcoreg
+
+# to deactivate:
+conda deactivate
+```
