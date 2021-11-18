@@ -1,3 +1,18 @@
+# -*- coding: utf-8 -*-
+"""
+Generate a DEM from two Sentinel-1 paired imagery.
+The input images would ideally come from the
+0_query_s1.py CSV output file, but any
+pair of images can be manually imputed.
+
+First version: September 2021
+Update: November 2021
+
+@authors:
+  Benjamin Robson, University of Bergen
+  Lorena Abad, University of Salzburg
+"""
+
 import os
 import snappy
 from snappy import GPF
@@ -5,7 +20,6 @@ from snappy import ProductIO
 from snappy import HashMap
 from snappy import jpy
 import subprocess
-from time import *
 import glob
 
 # documentation: http://step.esa.int/docs/v2.0/apidoc/engine/overview-summary.html
