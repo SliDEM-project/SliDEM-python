@@ -57,14 +57,22 @@ Depending on your time range the data querying can take long since what it does 
 intersects your AOI and find matching scenes for the whole S1 lifetime 
 (I know a bit useless but seems to be the only way now).
 
-```bin/bash
+```commandline
 # Usage example
-python3.6 home/scripts/0_query_s1.py --download_folder data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi data/aoi/alta.geojson
+# Backslashes added for readability
 
+python3.6 home/scripts/0_query_s1.py \
+        --download_folder data/s1/ \ 
+        --query_result s1_scenes.csv \
+        --date_start 2019/06/01 --date_end 2019/06/10 \
+        --aoi data/aoi/alta.geojson
+```
+```commandline
 # Get help
 python3.6 home/scripts/0_query_s1.py -h
 ```
-```
+
+```commandline
 usage: 0_query_s1.py [-h] [--download_folder DOWNLOAD_FOLDER]
                      [--query_result QUERY_RESULT] [--date_start DATE_START]
                      [--date_end DATE_END] [--aoi AOI] [--btempth BTEMPTH]
