@@ -21,14 +21,15 @@ from snappy import HashMap
 from snappy import jpy
 import subprocess
 import glob
-
+import stsa
+# code mainly from: https://github.com/crisjosil/InSAR_Snappy
 # documentation: http://step.esa.int/docs/v2.0/apidoc/engine/overview-summary.html
 
 print('snappy.__file__:', snappy.__file__)
 # prints the path to the snappy configs.
 # change in jpyconfig.py e.g. jvm_maxmem = '30G' and in snappy.ini java_max_mem: 30G (and uncomment)
 
-# Hashmap is used to give us access to all JAVA oerators
+# Hashmap is used to give us access to all JAVA operators
 HashMap = jpy.get_type('java.util.HashMap')
 parameters = HashMap()
 
@@ -60,7 +61,6 @@ def apply_orbit_file(product):
 def back_geocoding(product):
     print('back_geocoding ...')
     parameters.put("demName", "Copernicus 30m Global DEM")
-    # parameters.put("externalDEMFile", r"E:\Ben\Norway\SliDEM\Norway\ReferenceData\LiDAR\NDH Alta 2pkt 2018\NDH_Alta_2pkt_2018_DSM.tif")
     parameters.put("demResamplingMethod", "BILINEAR_INTERPOLATION")
     parameters.put("resamplingType", "BILINEAR_INTERPOLATION")
     parameters.put("maskOutAreaWithoutElevation", True)
@@ -143,7 +143,7 @@ def goldstein_phasefiltering(product):
 def SNAPHU_export(product, SNAPHU_exp_folder, tiles):
     parameters = HashMap()
     parameters.put('targetFolder', SNAPHU_exp_folder)  #
-    parameters.put('statCostMode', 'SMOOTH')
+    parameters.put('statCostMode', 'TOPO') # make a variable
     parameters.put('initMethod', 'MCF')
     parameters.put('numberOfTileCols', tiles)
     parameters.put('numberOfTileRows', tiles)
@@ -190,7 +190,6 @@ def phase_to_elev(product, unwrapped, SNAPHU_exp_folder):
     ProductIO.writeProduct(result_PE, SNAPHU_exp_folder, "BEAM-DIMAP")
     print('Convert to elevation successful.')
 
-
 def do_subset_band(source, wkt):
     print('\tSubsetting...')
     parameters = HashMap()
@@ -226,34 +225,6 @@ def write(product, filename):
 def write_BEAM_DIMAP_format(product, filename):
     print('Saving BEAM-DIMAP format.')
     ProductIO.writeProduct(product, filename + '.dim', 'BEAM-DIMAP')
-
-
-# %%
-# Input variables
-file_path = r"home/data"
-
-# should be "before" image
-filename_1 = os.path.join(file_path, 'S1B_IW_SLC__1SDV_20190831T045510_20190831T045537_017825_0218B6_491E.zip')
-
-# should be "after" image
-filename_2 = os.path.join(file_path, 'S1A_IW_SLC__1SDV_20190825T045538_20190825T045605_028721_03406F_847F.zip')
-
-out_filename_pipeline1 = os.path.join(file_path, 'out_pipe_I')
-out_filename_pipeline2 = os.path.join(file_path, 'out_pipe_II')
-out_filename_pipeline3 = os.path.join(file_path, 'out_pipe_III')
-snaphu_unwrap_folder = os.path.join(file_path, "snaphu")
-
-# %%
-
-if not os.path.exists(snaphu_unwrap_folder):
-    os.mkdir(snaphu_unwrap_folder)
-
-IW = 'IW3'
-polarization = 'VV'
-firstBurstIndex1 = 3
-lastBurstIndex1 = 4
-firstBurstIndex2 = 8
-lastBurstIndex2 = 9
 
 
 def InSAR_pipeline_I(filename_1, filename_2, IW, firstBurstIndex1, firstBurstIndex2,
@@ -298,15 +269,44 @@ def InSAR_pipeline_III(in_filename_III, out_filename_III):
     write_BEAM_DIMAP_format(coherence_TC, out_filename_III + '_coh_tc')
     print("InSAR_pipeline_III complete")
 
+# %%
+# Input variables
+file_path = "home/data/s1"
+out_path = "home/data/s1/202008_10_16"
 
+# should be "before" image = compute optimal master on SNAP
+filename_1 = os.path.join(file_path, 'S1B_IW_SLC__1SDV_20190816T155043_20190816T155110_017613_02122D_39CD.zip')
+
+# should be "after" image
+filename_2 = os.path.join(file_path, 'S1A_IW_SLC__1SDV_20190810T155114_20190810T155141_028509_03390E_9F11.zip')
+
+out_filename_pipeline1 = os.path.join(out_path, 'out_pipe_I')
+out_filename_pipeline2 = os.path.join(out_path, 'out_pipe_II')
+out_filename_pipeline3 = os.path.join(out_path, 'out_pipe_III')
+snaphu_unwrap_folder = os.path.join(out_path, "snaphu")
+
+# %%
+
+if not os.path.exists(snaphu_unwrap_folder):
+    os.mkdir(snaphu_unwrap_folder)
+
+# if there are two subswaths you have to run this separately and merge the results
+IW = 'IW2'
+polarization = 'VV'
+firstBurstIndex1 = 3
+lastBurstIndex1 = 3
+firstBurstIndex2 = 7
+lastBurstIndex2 = 7
 # InSAR_pipeline_I(filename_1, filename_2, IW, firstBurstIndex1, lastBurstIndex1,
-#                 firstBurstIndex2, lastBurstIndex2, out_filename_pipeline1)
-# InSAR_pipeline_II(out_filename_pipeline1 + ".dim", 6, out_filename_pipeline2)
-# InSAR_pipeline_III(out_filename_pipeline2 + ".dim", out_filename_pipeline3)
+#                  firstBurstIndex2, lastBurstIndex2, out_filename_pipeline1)
+InSAR_pipeline_II(out_filename_pipeline1 + ".dim", 6, out_filename_pipeline2)
+InSAR_pipeline_III(out_filename_pipeline2 + ".dim", out_filename_pipeline3)
 
 # SNAPHU_export(read(out_filename_pipeline2 + "_subset.dim"), snaphu_unwrap_folder, tiles=3)
-# SNAPHU_export(read(out_filename_pipeline2 + ".dim"), snaphu_unwrap_folder, tiles=1)
-# snaphu_unwrapping(snaphu_unwrap_folder)
-phase_to_elev(out_filename_pipeline2 + "_subset.dim",
-              os.path.join(snaphu_unwrap_folder, "unwrapped_read.dim"),
-              snaphu_unwrap_folder)
+SNAPHU_export(read(out_filename_pipeline2 + ".dim"), snaphu_unwrap_folder, tiles=1)
+snaphu_unwrapping(snaphu_unwrap_folder)
+# phase_to_elev(out_filename_pipeline2 + "_subset.dim",
+#               os.path.join(snaphu_unwrap_folder, "unwrapped_read.dim"),
+#               snaphu_unwrap_folder)
+
+# add demcoreg
