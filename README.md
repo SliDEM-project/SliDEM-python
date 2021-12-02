@@ -45,7 +45,7 @@ Replace `PATH_TO_DIR` with the path of the directory where you cloned SliDEM-pyt
    - If you don't want to delete your container after use, then just **exit** it, **stop** it, and next time you want to use it run:
    ```
    docker start snap
-   docker exec -it --entrypoint /bin/bash snap
+   docker exec -it snap /bin/bash
    ```
 
 5. Using `demcoreg`:
