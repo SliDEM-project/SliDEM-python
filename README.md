@@ -9,33 +9,56 @@ To test scripts inside a docker container, follow these steps:
 
 1. Clone this repository (download as zip and unzip OR even better use git)
 2. Build the docker image with the Dockerfile
-    - Be sure to have docker installed.
-    - Go to you terminal, navigate to the folder where you unzip this repo and type:
-```
-docker build -t snap-8 .
-```
+    - Be sure to have docker installed. See instructions for [Windows here](https://docs.docker.com/desktop/windows/install/) and for [Linux here](https://docs.docker.com/engine/install/).
+    - Go to you terminal, navigate to the folder where you unzipped this repo and type the command below.
+    - What it does:
+      - `docker build` is the command to build an image
+      - `-t snap-8` is assigning a tag to this image so you can refer to it later
+      - `.` will look for the Dockerfile in the current directory
+   ```
+   docker build -t snap-8 .
+   ```
 
 3. Create a container to work on
     - You can mount a volume into the container.
-    - I recommend having a data folder where all the data can be included and through the volume, it can also be accessed inside docker. 
-    
-```
-docker run -it --entrypoint /bin/bash --name snap --memory="8g" -v D:/SliDEM/SliDEM-python:/home/ snap-8
-```
+    - I recommend having a `data` folder where all the data can be included and through the volume, it can also be accessed inside docker. 
+    - What the command does:
+      - `docker run` is the command to run an image through a container
+      - `-it` calls an interactive process (like a shell)
+      - `--entrypoint /bin/bash` will start your container in bash
+      - `--name snap` gives a name to your image, so you can refer to it later
+      - `-v PATH_TO_DIR/SliDEM-python:/home/` mounts a volume on your container. 
+Replace `PATH_TO_DIR` with the path of the directory where you cloned SliDEM-python.
+      - `snap-8` this is the name we gave to the image in the command above
 
-4. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the scripts. 
+   ```
+   docker run -it --entrypoint /bin/bash --name snap -v PATH_TO_DIR/SliDEM-python:/home/ snap-8
+   ```
+
+4. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the parameters when calling the scripts. 
+   - You can exit your container by doing `CTRL+D`
+   - you can delete the container with:
+   ```
+   docker stop snap
+   docker rm snap
+   ```
+   - If you don't want to delete your container after use, then just **exit** it, **stop** it, and next time you want to use it run:
+   ```
+   docker start snap
+   docker exec -it --entrypoint /bin/bash snap
+   ```
 
 5. Using `demcoreg`:
    - Given the different dependencies for this module, you should use the virtual environment created for it. 
    - Here are some commands useful to activate and deactivate the environment:
 
-```
-# to activate:
-source activate demcoreg
-
-# to deactivate:
-conda deactivate
-```
+   ```
+   # to activate:
+   source activate demcoreg
+   
+   # to deactivate:
+   conda deactivate
+   ```
 
 ## Workflow
 
@@ -59,13 +82,7 @@ intersects your AOI and find matching scenes for the whole S1 lifetime
 
 ```commandline
 # Usage example
-# Backslashes added for readability
-
-python3.6 home/scripts/0_query_s1.py \
-        --download_folder data/s1/ \ 
-        --query_result s1_scenes.csv \
-        --date_start 2019/06/01 --date_end 2019/06/10 \
-        --aoi data/aoi/alta.geojson
+python3.6 home/scripts/0_query_s1.py --download_folder data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi data/aoi/alta.geojson
 ```
 ```commandline
 # Get help
