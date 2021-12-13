@@ -13,7 +13,7 @@ To test scripts inside a docker container, follow these steps:
     - Go to you terminal, navigate to the folder where you unzipped this repo and type the command below.
     - What it does:
       - `docker build` is the command to build an image
-      - `-t snap-8` is assigning a tag to this image so you can refer to it later
+      - `-t snap-8` is assigning a tag to this image, so you can refer to it later
       - `.` will look for the Dockerfile in the current directory
    ```
    docker build -t snap-8 .

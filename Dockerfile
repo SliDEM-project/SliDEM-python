@@ -56,7 +56,3 @@ RUN python3.6 -m pip install -e imview
 ENV PATH="src/pygeotools/pygeotools:src/demcoreg/demcoreg:src/imview/imview:$PATH"
 
 WORKDIR ..
-
-# Run the demcoreg command to obtain teh glacier outlines inside the container
-SHELL ["conda", "run", "-n", "demcoreg", "/bin/bash", "-c"]
-RUN get_rgi.sh
