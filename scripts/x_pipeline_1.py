@@ -54,11 +54,6 @@ def get_swath_burst(filename, aoi, polar=polarization):
     img.load_data(zip_path=filename)
     #  Create geodataframe with subswaths, bursts and geoms
     #  Calling an internal method to avoid writing to json and reloading
-    # This function causes a GeoPandas FutureWarning that should be addressed by
-    # stsa developers at some point:
-    # https://github.com/pbrotoisworo/s1-tops-split-analyzer/issues/7
-    # For this reason, I will suppress it
-    warnings.simplefilter("ignore", category=FutureWarning)
     img._create_subswath_geometry()
     img_df = img.df
 
