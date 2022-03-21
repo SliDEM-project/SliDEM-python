@@ -235,6 +235,6 @@ candidates_df.to_csv(file_name, index=False)
 os.remove(os.path.join(args.download_folder, tempfile1))
 os.remove(os.path.join(args.download_folder, tempfile2))
 print("CSV file with images to be processed has been written to " + file_name)
-print("Now is your turn! Open the file and check the potential S1 pairs,"
-      "which of them would you want to download? Update the Download column to TRUE"
+print("Now is your turn! Open the file and check the potential S1 pairs, "
+      "which of them would you want to download? Update the Download column to TRUE "
       "to set those scene pairs you would like to download and process.")
