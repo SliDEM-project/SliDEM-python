@@ -13,10 +13,6 @@ RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.
 ## include local package in python folder
 COPY setup/stsa/stsa/ /usr/lib/python3.6/stsa/
 
-# Install snaphu
-RUN apt update
-RUN apt install snaphu
-
 # Install GDAL
 RUN apt-get update &&\
     apt-get install -y binutils libproj-dev gdal-bin unzip
@@ -56,3 +52,14 @@ RUN python3.6 -m pip install -e imview
 ENV PATH="src/pygeotools/pygeotools:src/demcoreg/demcoreg:src/imview/imview:$PATH"
 
 WORKDIR ..
+
+# Install snaphu
+# Installs outdated version:
+RUN apt update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:a.valentino/eotools && \
+    apt update && \
+    apt install snaphu
+
+# Update snap-tools
+RUN snap --nosplash --nogui --modules --list --update-all --refresh
