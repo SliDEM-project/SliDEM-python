@@ -271,8 +271,8 @@ def InSAR_pipeline_III(in_filename_III, out_filename_III):
 
 # %%
 # Input variables
-file_path = "home/data/s1"
-out_path = "home/data/s1/202008_10_16"
+file_path = "home/data/s1/gjerdrum"
+out_path = "home/data/s1/gjerdrum/202008_20_26"
 
 # should be "before" image = compute optimal master on SNAP
 filename_1 = os.path.join(file_path, 'S1B_IW_SLC__1SDV_20190816T155043_20190816T155110_017613_02122D_39CD.zip')
