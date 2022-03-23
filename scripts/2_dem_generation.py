@@ -13,19 +13,30 @@ os.chdir('home/')
 # "before" image .zip
 # file_path_1 = "data/s1/alta/S1A_IW_SLC__1SDV_20190825T045538_20190825T045605_028721_03406F_847F.zip"
 # file_path_1 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
-file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200814T165343_20200814T165410_022922_02B829_8575.zip"
+# file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200814T165343_20200814T165410_022922_02B829_8575.zip"
 # file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20210709T170154_20210709T170221_027720_034EDE_EA73.zip"
+# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180830T165818_20180830T165846_012495_0170B1_77E6.zip"
+file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180606T050938_20180606T051005_011248_014A48_D593.zip"
+# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
+# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190726T165906_20190726T165933_028291_033238_1614.zip"
 # "after" image .zip
 # file_path_2 = "data/s1/alta/S1B_IW_SLC__1SDV_20190831T045510_20190831T045537_017825_0218B6_491E.zip"
 # file_path_2 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200826T165344_20200826T165411_023097_02BDAD_C34B.zip"
-file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
+# file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
 # file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20210715T170238_20210715T170305_038791_0493BD_2474.zip"
+# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180905T165902_20180905T165929_023566_02911D_1301.zip"
+file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180612T051015_20180612T051042_022319_026A74_B4EE.zip"
+# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190807T165907_20190807T165934_028466_033792_9A23.zip"
+# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
 # aoi in .geojson
 # aoi_path = "data/aoi/Alta.geojson"
-aoi_path = "data/aoi/Gjerdrum.geojson"
+# aoi_path = "data/aoi/Gjerdrum.geojson"
+aoi_path = "data/aoi/Grossarl.geojson"
 # output directory
 # output_dir = "data/tests/test_pipes_alta"
-output_dir = "data/tests/test_pipes_gjerdrum/pre_event_202008_1"
+# output_dir = "data/tests/test_pipes_gjerdrum/pos_event_202107"
+output_dir = "data/tests/test_pipes_grossarl/pre_event_201806"
+# output_dir = "data/tests/test_pipes_grossarl/pos_event_201907"
 # polarization: default "VV"
 polarization = "VV"
 # DEM for back-geocoding
@@ -327,7 +338,7 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
 def run_P2(out_dir, topophaseremove=False, dem=None,
            multilooking=True, ml_rangelooks=None,
            goldsteinfiltering=True,
-           subsetting=True, aoi=None):
+           subsetting=True, aoi=None, subset_buffer=0):
     in_filename = os.path.join(out_dir, 'out_P1')  # takes result from previous pipeline
     product = read(in_filename + ".dim")  # reads .dim
     product = interferogram(product)
@@ -341,7 +352,7 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     out_filename = os.path.join(out_dir, 'out_P2')
     write_BEAM_DIMAP_format(product, out_filename)
     if subsetting:
-        product_ss = subset(product, aoi, buffer=0)
+        product_ss = subset(product, aoi, buffer=subset_buffer)
         out_filename = os.path.join(out_dir, 'out_P2_subset')
         write_BEAM_DIMAP_format(product_ss, out_filename)
     print("Pipeline [P2] complete")
@@ -357,6 +368,7 @@ def run_P3(out_dir, tiles, cost_mode, subset=True):
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode)
     snaphu_unwrapping(out_dir_snaphu)
+    # TODO: if unwrapping fails (no .img file is generated), pass on the errro from snaphu and don't go on with the script
     print("Pipeline [P3] complete")
 
 
@@ -387,7 +399,8 @@ run_P2(
     out_dir=output_dir,
     multilooking=True, ml_rangelooks=6,
     goldsteinfiltering=True,
-    subsetting=subset_toggle, aoi=aoi_path
+    subsetting=subset_toggle, aoi=aoi_path,
+    subset_buffer=0.1
 )
 
 run_P3(

@@ -35,7 +35,7 @@ parser.add_argument(
   '--query_result',
   type=str,
   help='''path to the CSV file with query results from 0_query_s1.py. 
-  Should be located in the specified download folder.'''
+  Should be located in the specified download_folder.'''
 )
 args = parser.parse_args()
 

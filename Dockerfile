@@ -5,6 +5,11 @@ FROM mundialis/esa-snap:ubuntu
 COPY setup/requirements.txt /tmp/base_requirements.txt
 COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
 
+# Update snap-tools
+# RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
+# COPY setup/update-snap.sh /tmp/update-snap.sh
+# RUN bash /tmp/update-snap.sh
+
 ## Install requirements for python
 RUN python3.6 -m pip install --upgrade pip
 RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/stsa_requirements.txt
@@ -12,6 +17,11 @@ RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.
 
 ## include local package in python folder
 COPY setup/stsa/stsa/ /usr/lib/python3.6/stsa/
+
+# Install snaphu
+# Installs outdated version:
+RUN apt update && \
+    apt install snaphu
 
 # Install GDAL
 RUN apt-get update &&\
@@ -52,14 +62,3 @@ RUN python3.6 -m pip install -e imview
 ENV PATH="src/pygeotools/pygeotools:src/demcoreg/demcoreg:src/imview/imview:$PATH"
 
 WORKDIR ..
-
-# Install snaphu
-# Installs outdated version:
-RUN apt update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:a.valentino/eotools && \
-    apt update && \
-    apt install snaphu
-
-# Update snap-tools
-RUN snap --nosplash --nogui --modules --list --update-all --refresh
