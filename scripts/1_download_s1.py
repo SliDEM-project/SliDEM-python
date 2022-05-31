@@ -58,9 +58,18 @@ refIDs = productsIn['ReferenceID'].tolist()
 matchIDs = productsIn['MatchID'].tolist()
 productIDs = list(set(refIDs + matchIDs))
 
-print("Scenes to download: ", len(productIDs))
+# Check if products are already on the download directory
+productList = [args.download_folder + "/" + f"{s}.zip" for s in productIDs]
+productExists = []
+for p in productList:
+  productExists.append(os.path.exists(p))
 
-urls = [f"https://datapool.asf.alaska.edu/SLC/SB/{s}.zip" for s in productIDs]
+print("Existing scenes on directory: ", sum(productExists))
+
+productIDs_download = [d for (d, remove) in zip(productIDs, productExists) if not remove]
+print("Scenes to download: ", len(productIDs_download))
+
+urls = [f"https://datapool.asf.alaska.edu/SLC/SB/{s}.zip" for s in productIDs_download]
 asf.download_urls(urls=urls, path=args.download_folder, session=session, processes=4)
 
-print("All images downloaded")
+print("All images downloaded!")

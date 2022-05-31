@@ -1,42 +1,83 @@
+import glob
 import json
 import os
-import stsa
+import pandas as pd
 from shapely.geometry import shape, GeometryCollection
 from snappy import ProductIO, jpy, GPF
+import stsa
 import subprocess
-import glob
 
 # Set home as current directory
 os.chdir('home/')
 
 # Arguments
+download_dir = "data/s1/grossarl"
+query_result = "s1_scenes_grossarl_2017.csv"
+index = 1
+
+# Read in image pairs
+products = pd.read_csv(os.path.join(download_dir, query_result))
+productsIn = products[products['Download']]
+
 # "before" image .zip
+if pd.to_datetime(productsIn.iloc[index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[index]['MatchDate']):
+    file_path_1 = os.path.join(download_dir, productsIn.iloc[index]['ReferenceID'] + '.zip')
+else:
+    file_path_1 = os.path.join(download_dir, productsIn.iloc[index]['MatchID'] + '.zip')
+# "after" image .zip
+if pd.to_datetime(productsIn.iloc[index]['MatchDate']) > pd.to_datetime(productsIn.iloc[index]['ReferenceDate']):
+    file_path_2 = os.path.join(download_dir, productsIn.iloc[index]['MatchID'] + '.zip')
+else:
+    file_path_2 = os.path.join(download_dir, productsIn.iloc[index]['ReferenceID'] + '.zip')
+
 # file_path_1 = "data/s1/alta/S1A_IW_SLC__1SDV_20190825T045538_20190825T045605_028721_03406F_847F.zip"
 # file_path_1 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
 # file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200814T165343_20200814T165410_022922_02B829_8575.zip"
 # file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20210709T170154_20210709T170221_027720_034EDE_EA73.zip"
 # file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180830T165818_20180830T165846_012495_0170B1_77E6.zip"
-file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180606T050938_20180606T051005_011248_014A48_D593.zip"
+# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180606T050938_20180606T051005_011248_014A48_D593.zip"
 # file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
 # file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190726T165906_20190726T165933_028291_033238_1614.zip"
+# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191117T165826_20191117T165854_018970_023C98_7384.zip"
+# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180605T051826_20180605T051853_022217_026754_5C19.zip"
+# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180713T165815_20180713T165843_011795_015B3A_D0E8.zip" ## unwrapping failed
+# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180812T165901_20180812T165928_023216_0285E3_03BA.zip" ## unwrapping failed
+# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180812T165901_20180812T165928_023216_0285E3_03BA.zip"
+# file_path_1 = "data/s1/kleinarl/S1B_IW_SLC__1SDV_20170706T165808_20170706T165836_006370_00B317_9CAE.zip"
 # "after" image .zip
 # file_path_2 = "data/s1/alta/S1B_IW_SLC__1SDV_20190831T045510_20190831T045537_017825_0218B6_491E.zip"
 # file_path_2 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200826T165344_20200826T165411_023097_02BDAD_C34B.zip"
 # file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
 # file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20210715T170238_20210715T170305_038791_0493BD_2474.zip"
 # file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180905T165902_20180905T165929_023566_02911D_1301.zip"
-file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180612T051015_20180612T051042_022319_026A74_B4EE.zip"
+# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180612T051015_20180612T051042_022319_026A74_B4EE.zip"
 # file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190807T165907_20190807T165934_028466_033792_9A23.zip"
 # file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
+# file_path_2 = "data/s1/kleinarl/S1B_IW_SLC__1SDV_20170718T165809_20170718T165837_006545_00B822_DEF2.zip"
+
+# Processing now:
+# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191211T165825_20191211T165853_019320_0247BB_3C80.zip"
+# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180629T051827_20180629T051854_022567_0271CF_4B05.zip"
+# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180719T165900_20180719T165927_022866_027AC5_F2A0.zip" ##unwrapping failed
+# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180818T165818_20180818T165846_012320_016B44_5B53.zip" ## unwrapping failed
+# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191223T165824_20191223T165852_019495_024D48_73EA.zip"
+
 # aoi in .geojson
 # aoi_path = "data/aoi/Alta.geojson"
 # aoi_path = "data/aoi/Gjerdrum.geojson"
 aoi_path = "data/aoi/Grossarl.geojson"
+# aoi_path = "data/aoi/Kleinarl.geojson"
 # output directory
 # output_dir = "data/tests/test_pipes_alta"
 # output_dir = "data/tests/test_pipes_gjerdrum/pos_event_202107"
-output_dir = "data/tests/test_pipes_grossarl/pre_event_201806"
+# output_dir = "data/tests/test_pipes_grossarl/pre_event_201806"
 # output_dir = "data/tests/test_pipes_grossarl/pos_event_201907"
+# output_dir = "data/tests/test_pipes_grossarl/pos_event_201911"
+# output_dir = "data/tests/test_pipes_grossarl/pre_event_201806_2"
+# output_dir = "data/tests/test_pipes_grossarl/pre_event_201807"
+# output_dir = "data/tests/test_pipes_grossarl/pre_event_201808_1"
+output_dir = "data/tests/test_pipes_grossarl"
+# output_dir = "data/tests/test_pipes_kleinarl/pre_event_2017"
 # polarization: default "VV"
 polarization = "VV"
 # DEM for back-geocoding
@@ -54,12 +95,17 @@ parameters = HashMap()
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
+output_dir = os.path.join(output_dir, 'out_' +
+                          pd.to_datetime(productsIn.iloc[index]['ReferenceDate']).strftime('%Y%m%d') + '_' +
+                          pd.to_datetime(productsIn.iloc[index]['MatchDate']).strftime('%Y%m%d'))
+if not os.path.exists(output_dir):
+    os.mkdir(output_dir)
 
 # Functions:
-# From this section I will define a set of functions that will be called
+# From this section I define a set of functions that are called
 # within a pipeline at the end of the script. Each function will start with a
 # comment saying what it does, and will include an indicator as to which
-# pipeline it belongs to (P1, P2, P3)
+# pipeline it belongs to (P1, P2, P3, P4)
 
 
 # [P1|P2] Function to read AOI
@@ -295,6 +341,17 @@ def terrain_correction(source, band, projected=True):
 
 # Pipe functions
 def run_P1(file1, file2, aoi, polarization, dem, out_dir):
+    # Write user settings to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'w')
+    file.write(
+        'USER-SETTINGS FOR PIPELINE 1:\n' +
+        'ReferenceID path: ' + file1 + '\n' +
+        'MatchID path: ' + file2 + '\n' +
+        'Polarization: ' + polarization + '\n' +
+        'DEM for back-geocoding: ' + dem + '\n'
+    )
+    file.close
+
     # Apply stsa workflow
     stsa_1 = get_swath_burst(file1, aoi, polar=polarization)
     stsa_2 = get_swath_burst(file2, aoi, polar=polarization)
@@ -318,11 +375,40 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     lastBurstIndex_1 = max(burst_1)
     firstBurstIndex_2 = min(burst_2)
     lastBurstIndex_2 = max(burst_2)
-    # TODO: include a log file with subswaths and bursts used
 
-    # Proceed to SNAP workflow
+    # Write sub-swath and burst to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write(
+        '\nAUTOMATICALLY EXTRACTED PARAMETERS IN PIPELINE 1:\n'
+        'Subswath: ' + IW + '\n' +
+        'Bursts 1: ' + ','.join([str(item) for item in burst_1]) + '\n' +
+        'Bursts 2: ' + ','.join([str(item) for item in burst_2]) + '\n')
+    file.close
+
+    # Compute InSAR stack overview
     product_1 = read(file1)
     product_2 = read(file2)
+    # import the stack operator
+    # From: https://forum.step.esa.int/t/insar-dinsar-perpendicular-baseline-calculation/3776/34
+    stack = jpy.get_type('org.esa.s1tbx.insar.gpf.coregistration.CreateStackOp')
+    stack.getBaselines([product_1, product_2], product_1)
+    # Now there is a new piece of metadata in product one called 'Baselines'
+    baseline_root_metadata = product_1.getMetadataRoot().getElement('Abstracted_Metadata').getElement('Baselines')
+    # Write to log all the baselines between all master/slave configurations
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write('\nCOMPUTED STACKS IN PIPELINE 1:\n')
+    master_ids = list(baseline_root_metadata.getElementNames())
+    for master_id in master_ids:
+        slave_ids = list(baseline_root_metadata.getElement(master_id).getElementNames())
+        for slave_id in slave_ids:
+            file.write(f'\n{master_id}, {slave_id}\n')
+            baseline_metadata = baseline_root_metadata.getElement(master_id).getElement(slave_id)
+            for baseline in list(baseline_metadata.getAttributeNames()):
+                file.write(f'{baseline}: {baseline_metadata.getAttributeString(baseline)}\n')
+            file.write('')
+    file.close
+
+    # Proceed to SNAP workflow
     product_TOPSAR_1 = topsar_split(product_1, IW, firstBurstIndex_1, lastBurstIndex_1)
     product_TOPSAR_2 = topsar_split(product_2, IW, firstBurstIndex_2, lastBurstIndex_2)
     product_orbitFile_1 = apply_orbit_file(product_TOPSAR_1)
@@ -339,6 +425,14 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
            multilooking=True, ml_rangelooks=None,
            goldsteinfiltering=True,
            subsetting=True, aoi=None, subset_buffer=0):
+    # Write user settings to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write(
+        '\nUSER-SETTINGS FOR PIPELINE 2:\n' +
+        'Multi-looking range: ' + ml_rangelooks + '\n'
+    )
+    file.close
+
     in_filename = os.path.join(out_dir, 'out_P1')  # takes result from previous pipeline
     product = read(in_filename + ".dim")  # reads .dim
     product = interferogram(product)
@@ -359,6 +453,15 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
 
 
 def run_P3(out_dir, tiles, cost_mode, subset=True):
+    # Write user settings to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write(
+        '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
+        'Tiles: ' + tiles + '\n'
+        'Cost mode: ' + cost_mode + '\n'
+    )
+    file.close
+
     if subset:
         in_filename = os.path.join(out_dir, 'out_P2_subset')  # takes subset result from previous pipeline
         product = read(in_filename + ".dim")  # reads .dim
@@ -368,7 +471,7 @@ def run_P3(out_dir, tiles, cost_mode, subset=True):
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode)
     snaphu_unwrapping(out_dir_snaphu)
-    # TODO: if unwrapping fails (no .img file is generated), pass on the errro from snaphu and don't go on with the script
+    # TODO: if unwrapping fails (no .img file is generated), pass on the error from snaphu and don't go on with the script
     print("Pipeline [P3] complete")
 
 
@@ -388,6 +491,7 @@ def run_P4(out_dir, dem=None, subset=True, proj=True):
     write_BEAM_DIMAP_format(product, out_filename)
     print("Pipeline [P4] complete")
 
+
 # Run the workflow
 run_P1(
     file1=file_path_1, file2=file_path_2,
@@ -395,22 +499,25 @@ run_P1(
     dem=dem, out_dir=output_dir
 )
 
-run_P2(
-    out_dir=output_dir,
-    multilooking=True, ml_rangelooks=6,
-    goldsteinfiltering=True,
-    subsetting=subset_toggle, aoi=aoi_path,
-    subset_buffer=0.1
-)
-
-run_P3(
-    out_dir=output_dir,
-    tiles=1, cost_mode='TOPO',
-    subset=subset_toggle
-)
-
-run_P4(
-    out_dir=output_dir,
-    dem=dem, proj=output_projected,
-    subset=subset_toggle
-)
+# run_P2(
+#     out_dir=output_dir,
+#     multilooking=True, ml_rangelooks=6,
+#     goldsteinfiltering=True,
+#     subsetting=subset_toggle, aoi=aoi_path,
+#     subset_buffer=0
+# )
+#
+# run_P3(
+#     out_dir=output_dir,
+#     tiles=1,
+#     # Either TOPO or SMOOTH are viable options.
+#     # DEFO is for deformation and not recommended.
+#     cost_mode='TOPO',
+#     subset=subset_toggle
+# )
+#
+# run_P4(
+#     out_dir=output_dir,
+#     dem=dem, proj=output_projected,
+#     subset=subset_toggle
+# )

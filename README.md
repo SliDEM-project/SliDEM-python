@@ -48,7 +48,25 @@ Replace `PATH_TO_DIR` with the path of the directory where you cloned SliDEM-pyt
    docker exec -it snap /bin/bash
    ```
 
-5. Using `demcoreg`:
+5. Using `xdem`:
+   - Given the different dependencies for this module, you should use the virtual environment created for it.
+
+   ```commandline
+   # to activate:
+   conda activate xdem-dev
+   
+   # to deactivate:
+   conda deactivate
+   ```
+   - Please test that the configuration when building the docker container 
+was correct with (this might take several minutes):
+   
+   ```commandline
+   cd xdem
+   pytest -rA
+   ```
+
+6. Using `demcoreg`:
    - Given the different dependencies for this module, you should use the virtual environment created for it. 
    - Here are some commands useful to activate and deactivate the environment:
 

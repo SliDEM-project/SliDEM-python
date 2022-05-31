@@ -106,6 +106,8 @@ tempfile1 = 'tmpgeo.csv'
 repo = 'asf'
 
 # Connect to API and search
+print("Connecting to API and searching images, depending on your AOI size and time period,"
+      " this process may take a while. Be patient :)")
 if repo == 'sentinelhub':  # not active currently, seems to only query recent images?
     # Connect to Sentinel API
     # Norway mirror:
