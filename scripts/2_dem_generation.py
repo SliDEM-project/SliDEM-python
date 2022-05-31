@@ -30,54 +30,18 @@ if pd.to_datetime(productsIn.iloc[index]['MatchDate']) > pd.to_datetime(products
 else:
     file_path_2 = os.path.join(download_dir, productsIn.iloc[index]['ReferenceID'] + '.zip')
 
-# file_path_1 = "data/s1/alta/S1A_IW_SLC__1SDV_20190825T045538_20190825T045605_028721_03406F_847F.zip"
-# file_path_1 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
-# file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200814T165343_20200814T165410_022922_02B829_8575.zip"
-# file_path_1 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20210709T170154_20210709T170221_027720_034EDE_EA73.zip"
-# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180830T165818_20180830T165846_012495_0170B1_77E6.zip"
-# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180606T050938_20180606T051005_011248_014A48_D593.zip"
-# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
-# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190726T165906_20190726T165933_028291_033238_1614.zip"
-# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191117T165826_20191117T165854_018970_023C98_7384.zip"
-# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180605T051826_20180605T051853_022217_026754_5C19.zip"
-# file_path_1 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180713T165815_20180713T165843_011795_015B3A_D0E8.zip" ## unwrapping failed
-# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180812T165901_20180812T165928_023216_0285E3_03BA.zip" ## unwrapping failed
-# file_path_1 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180812T165901_20180812T165928_023216_0285E3_03BA.zip"
-# file_path_1 = "data/s1/kleinarl/S1B_IW_SLC__1SDV_20170706T165808_20170706T165836_006370_00B317_9CAE.zip"
-# "after" image .zip
-# file_path_2 = "data/s1/alta/S1B_IW_SLC__1SDV_20190831T045510_20190831T045537_017825_0218B6_491E.zip"
-# file_path_2 = "data/s1/gjerdrum/S1B_IW_SLC__1SDV_20200826T165344_20200826T165411_023097_02BDAD_C34B.zip"
-# file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20200820T165424_20200820T165451_033993_03F1E0_E9D4.zip"
-# file_path_2 = "data/s1/gjerdrum/S1A_IW_SLC__1SDV_20210715T170238_20210715T170305_038791_0493BD_2474.zip"
-# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180905T165902_20180905T165929_023566_02911D_1301.zip"
-# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180612T051015_20180612T051042_022319_026A74_B4EE.zip"
-# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20190807T165907_20190807T165934_028466_033792_9A23.zip"
-# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20190801T165823_20190801T165851_017395_020B63_B4F4.zip"
-# file_path_2 = "data/s1/kleinarl/S1B_IW_SLC__1SDV_20170718T165809_20170718T165837_006545_00B822_DEF2.zip"
-
-# Processing now:
-# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191211T165825_20191211T165853_019320_0247BB_3C80.zip"
-# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180629T051827_20180629T051854_022567_0271CF_4B05.zip"
-# file_path_2 = "data/s1/grossarl/S1A_IW_SLC__1SDV_20180719T165900_20180719T165927_022866_027AC5_F2A0.zip" ##unwrapping failed
-# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20180818T165818_20180818T165846_012320_016B44_5B53.zip" ## unwrapping failed
-# file_path_2 = "data/s1/grossarl/S1B_IW_SLC__1SDV_20191223T165824_20191223T165852_019495_024D48_73EA.zip"
-
 # aoi in .geojson
 # aoi_path = "data/aoi/Alta.geojson"
 # aoi_path = "data/aoi/Gjerdrum.geojson"
 aoi_path = "data/aoi/Grossarl.geojson"
 # aoi_path = "data/aoi/Kleinarl.geojson"
+
 # output directory
 # output_dir = "data/tests/test_pipes_alta"
-# output_dir = "data/tests/test_pipes_gjerdrum/pos_event_202107"
-# output_dir = "data/tests/test_pipes_grossarl/pre_event_201806"
-# output_dir = "data/tests/test_pipes_grossarl/pos_event_201907"
-# output_dir = "data/tests/test_pipes_grossarl/pos_event_201911"
-# output_dir = "data/tests/test_pipes_grossarl/pre_event_201806_2"
-# output_dir = "data/tests/test_pipes_grossarl/pre_event_201807"
-# output_dir = "data/tests/test_pipes_grossarl/pre_event_201808_1"
+# output_dir = "data/tests/test_pipes_gjerdrum"
 output_dir = "data/tests/test_pipes_grossarl"
-# output_dir = "data/tests/test_pipes_kleinarl/pre_event_2017"
+# output_dir = "data/tests/test_pipes_kleinarl"
+
 # polarization: default "VV"
 polarization = "VV"
 # DEM for back-geocoding
@@ -95,9 +59,11 @@ parameters = HashMap()
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
-output_dir = os.path.join(output_dir, 'out_' +
-                          pd.to_datetime(productsIn.iloc[index]['ReferenceDate']).strftime('%Y%m%d') + '_' +
-                          pd.to_datetime(productsIn.iloc[index]['MatchDate']).strftime('%Y%m%d'))
+# Create new directory on output dir with dates of reference and match image
+output_dir = os.path.join(
+    output_dir, 'out_' +
+    pd.to_datetime(productsIn.iloc[index]['ReferenceDate']).strftime('%Y%m%d') + '_' +
+    pd.to_datetime(productsIn.iloc[index]['MatchDate']).strftime('%Y%m%d'))
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
@@ -499,25 +465,25 @@ run_P1(
     dem=dem, out_dir=output_dir
 )
 
-# run_P2(
-#     out_dir=output_dir,
-#     multilooking=True, ml_rangelooks=6,
-#     goldsteinfiltering=True,
-#     subsetting=subset_toggle, aoi=aoi_path,
-#     subset_buffer=0
-# )
-#
-# run_P3(
-#     out_dir=output_dir,
-#     tiles=1,
-#     # Either TOPO or SMOOTH are viable options.
-#     # DEFO is for deformation and not recommended.
-#     cost_mode='TOPO',
-#     subset=subset_toggle
-# )
-#
-# run_P4(
-#     out_dir=output_dir,
-#     dem=dem, proj=output_projected,
-#     subset=subset_toggle
-# )
+run_P2(
+    out_dir=output_dir,
+    multilooking=True, ml_rangelooks=6,
+    goldsteinfiltering=True,
+    subsetting=subset_toggle, aoi=aoi_path,
+    subset_buffer=0
+)
+
+run_P3(
+    out_dir=output_dir,
+    tiles=1,
+    # Either TOPO or SMOOTH are viable options.
+    # DEFO is for deformation and not recommended.
+    cost_mode='TOPO',
+    subset=subset_toggle
+)
+
+run_P4(
+    out_dir=output_dir,
+    dem=dem, proj=output_projected,
+    subset=subset_toggle
+)
