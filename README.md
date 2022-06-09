@@ -1,8 +1,17 @@
 # SliDEM
 Development of the SliDEM Python package for the SliDEM project
 
-**NOTE!** The scripts still need some refinement before being fully ready to use. Cleaning of directories and naming is still needed so please check before running.
+---
 
+**NOTE!** 
+
+Even if we call it the SliDEM package, the structure of a package is not there yet. We are currently developing this repository actively and hope to have a working package soon. 
+
+Currently, we present a series of executable scripts to run within a Docker container. You will see the instructions on how to set it up and start running the scripts below. 
+
+The scripts still need some refinement before being fully ready to use. Cleaning of directories and naming is still needed so please check before running.
+
+---
 ## Setup
 
 To test scripts inside a docker container, follow these steps:
@@ -94,7 +103,7 @@ But of course this is up to you.
 
 ### 1. Query 
 For this script, since we are using ASF to query images, no credentials are needed. 
-Depending on your time range the data querying can take long since what it does is loop over every single image that
+Depending on your selected time range, the data querying can take long since what it does is loop over every single image that
 intersects your AOI and find matching scenes for the whole S1 lifetime 
 (I know a bit useless but seems to be the only way now).
 
@@ -159,3 +168,44 @@ Authors:
   Lorena Abad - University of Salzburg - lorena.abad@plus.ac.at
   Benjamin Robson - University of Bergen
 ```
+
+### 2. Download
+Once you have run the query script, you will have a CSV file as an output. 
+This file contains all the SAR image pairs that intersect your AOI and time frame and 
+that correspond to the perpendicular and temporal thresholds set. 
+
+We ask you now to go through the CSV file, and check which image pairs you would like to Download. 
+For this you need to change the cell value of the image pair row under the column `Download` from `FALSE` to `TRUE`. 
+
+Why is this a manual step? Because we want the analyst to check if the image pair is suitable or not for analysis. 
+To help we added a link to the Sentinel Hub viewer for th closest Sentinel-2 image available for the dates of the image pair. 
+Here you will be able to check if there was snow during your time period, if the cloud coverage was dense, if your area has
+very dense vegetation that might result in errors, etc. 
+
+**IMPORTANT!**
+Since the download step will be done through the ASF server, we need credentials that allow you to obtain the data. 
+The credentials should be saved in a file called `.env` on the directory mounted as a volume on the docker.
+Username should be saved as `asf_login` and password as `asf_pwd`. See an example below:
+
+```text
+asf_login='USERNAME'
+asf_pwd='PASSWORD'
+```
+
+Once the changes to the CSV files are saved and your `.env` file is ready, you can run the `1_download_s1.py` script as shown below.
+
+```commandline
+# Usage example
+python3.6 home/scripts/1_download_s1.py --download_folder data/s1/ --query_result s1_scenes.csv
+```
+```commandline
+# Get help
+python3.6 home/scripts/1_download_s1.py -h
+```
+
+Downloading Sentinel-1 data always takes a while and requires a lot of disk space. 
+Remember that the download occurs on your local disk, if you have mounted a volume as suggested. 
+Be prepared and patient! :massage:
+
+### 3. DEM generation
+
