@@ -13,7 +13,7 @@ os.chdir('home/')
 # Arguments
 download_dir = "data/s1/grossarl"
 query_result = "s1_scenes_grossarl_2017.csv"
-index = 1
+index = 3
 
 # Read in image pairs
 products = pd.read_csv(os.path.join(download_dir, query_result))
@@ -62,8 +62,8 @@ if not os.path.exists(output_dir):
 # Create new directory on output dir with dates of reference and match image
 output_dir = os.path.join(
     output_dir, 'out_' +
-    pd.to_datetime(productsIn.iloc[index]['ReferenceDate']).strftime('%Y%m%d') + '_' +
-    pd.to_datetime(productsIn.iloc[index]['MatchDate']).strftime('%Y%m%d'))
+    pd.to_datetime(productsIn.iloc[index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
+    pd.to_datetime(productsIn.iloc[index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
@@ -238,15 +238,15 @@ def subset(source, aoi, buffer):
 
 
 # [P3] Function to export to snaphu
-def snaphu_export(product, snaphu_exp_folder, tiles, cost_mode):
+def snaphu_export(product, snaphu_exp_folder, tiles, cost_mode, tile_overlap_row, tile_overlap_col):
     print("Exporting to SNAPHU format...")
     parameters.put('targetFolder', snaphu_exp_folder)
     parameters.put('statCostMode', cost_mode)
     parameters.put('initMethod', 'MCF')
     parameters.put('numberOfTileCols', tiles)
     parameters.put('numberOfTileRows', tiles)
-    parameters.put('rowOverlap', 200)
-    parameters.put('colOverlap', 200)
+    parameters.put('rowOverlap', tile_overlap_row)
+    parameters.put('colOverlap', tile_overlap_col)
     parameters.put('numberOfProcessors', 4)
     parameters.put('tileCostThreshold', 500)
     output = GPF.createProduct('SnaphuExport', parameters, product)
@@ -395,7 +395,7 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 2:\n' +
-        'Multi-looking range: ' + ml_rangelooks + '\n'
+        'Multi-looking range: ' + str(ml_rangelooks) + '\n'
     )
     file.close
 
@@ -418,12 +418,13 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     print("Pipeline [P2] complete")
 
 
-def run_P3(out_dir, tiles, cost_mode, subset=True):
+def run_P3(out_dir, tiles, cost_mode, tile_overlap_row, tile_overlap_col, subset=True):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
-        'Tiles: ' + tiles + '\n'
+        'Tiles: ' + str(tiles) + '\n'
+        'Tiles overlap: row ' + str(tile_overlap_row) + ', col ' + str(tile_overlap_row) + '\n'
         'Cost mode: ' + cost_mode + '\n'
     )
     file.close
@@ -435,9 +436,10 @@ def run_P3(out_dir, tiles, cost_mode, subset=True):
         in_filename = os.path.join(out_dir, 'out_P2')  # takes subset result from previous pipeline
         product = read(in_filename + ".dim")  # reads .dim
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
-    snaphu_export(product, out_dir_snaphu, tiles, cost_mode)
+    snaphu_export(product, out_dir_snaphu, tiles, cost_mode, tile_overlap_row, tile_overlap_col)
     snaphu_unwrapping(out_dir_snaphu)
-    # TODO: if unwrapping fails (no .img file is generated), pass on the error from snaphu and don't go on with the script
+    # TODO: if unwrapping fails (no .img file is generated),
+    #  pass on the error from snaphu and don't go on with the script
     print("Pipeline [P3] complete")
 
 
@@ -446,7 +448,7 @@ def run_P4(out_dir, dem=None, subset=True, proj=True):
         in_filename = os.path.join(out_dir, 'out_P2_subset')  # takes subset result from previous pipeline
         product = read(in_filename + ".dim")  # reads .dim
     else:
-        in_filename = os.path.join(out_dir, 'out_P2')  # takes subset result from previous pipeline
+        in_filename = os.path.join(out_dir, 'out_P2')  # takes result from previous pipeline
         product = read(in_filename + ".dim")  # reads .dim
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     unwrapped_fn = os.path.join(out_dir_snaphu, 'unwrapped')
@@ -479,6 +481,8 @@ run_P3(
     # Either TOPO or SMOOTH are viable options.
     # DEFO is for deformation and not recommended.
     cost_mode='TOPO',
+    tile_overlap_row=200,
+    tile_overlap_col=200,
     subset=subset_toggle
 )
 

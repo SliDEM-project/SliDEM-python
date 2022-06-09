@@ -5,7 +5,8 @@ import geoutils as gu
 
 # reference_dem = xdem.DEM("home/data/ref_dem/NDH_Alta_2pkt_2018_DTM.tif")
 # reference_dem = xdem.DEM("home/data/ref_dem/dgm5m_con.tif")
-reference_dem = xdem.DEM("home/data/ref_dem/dgm_50413.tif")
+reference_dem = xdem.DEM("home/data/ref_dem/dgm_50413_1m_32633.tif")
+# reference_dem = xdem.DEM("home/data/ref_dem/dgm_50413.tif")
 # reference_dem = xdem.DEM("home/data/ref_dem/Gjerdrum_Ullensaker_Nannestad_5pkt_DTM_2020_subset.tif")
 # dem_to_be_aligned = xdem.DEM("home/data/ref_dem/AltaLandslide_UAV_DTM_EPSG25835_50cm.tif")
 # dem_to_be_aligned = xdem.DEM("home/data/ref_dem/Huttschlag_Austria_UAV_Oct2021_DTM_1m_clipped.tif")
@@ -14,8 +15,25 @@ reference_dem = xdem.DEM("home/data/ref_dem/dgm_50413.tif")
 # dem_to_be_aligned = xdem.DEM("home/data/tests/test_pipes_grossarl/pos_event_201908/out_P4.data/elevation_VV_20190801_0807.tif")
 # dem_to_be_aligned = xdem.DEM(
 #     "home/data/tests/test_pipes_grossarl/pos_event_201907/out_P4.data/elevation_VV_20190726_0801.tif")
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/elevation_VV_20200608_0813.tif")
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/out_20200712_20200730/elevation_VV_20200712_0730.tif")
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/out_20200712_20200730/coreg/elevation_VV_20200712_0730_dgm1m_coreg_deramp3_aoi.tif"
+# )
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/pre_event_201808/out_P4.data/coreg/elevation_VV_20180830_0905_dgm1m_coreg_deramp3_aoi.tif"
+# )
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/out_20170624_20170718/coreg_2/elevation_VV_20170624_0718_dgm1m_coreg_deramp3_aoi.tif"
+# )
 dem_to_be_aligned = xdem.DEM(
-    "home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/elevation_VV_20200608_0813.tif")
+    'home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/coreg/elevation_VV_20200720_0825_dgm1m_coreg_deramp3_Aoi.tif'
+)
+# dem_to_be_aligned = xdem.DEM(
+#     "home/data/tests/test_pipes_grossarl/out_20170624_20170718/elevation_VV_20170624_0718.tif"
+# )
 # dem_to_be_aligned = xdem.DEM(
 #     "home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/elevation_VV_20200720_0825.tif")
 # dem_to_be_aligned = xdem.DEM("home/data/tests/test_pipes_grossarl/pos_event_202006/elevation_VV_20200602_0813.tif")
@@ -29,7 +47,7 @@ dem_to_be_aligned = xdem.DEM(
 # dem_to_be_aligned = xdem.DEM("home/data/tests/test_pipes_gjerdrum/pre_event_202008_2/elevation_20200825_0831.tif")
 
 # Assign no data value if needed
-# dem_to_be_aligned.set_ndv(0)
+# dem_to_be_aligned.set_ndv(-9999)
 # Reproject reference dem to dem to be aligned
 reference_dem = reference_dem.reproject(dem_to_be_aligned)
 
@@ -187,22 +205,24 @@ aligned_dem_ref_name = dem_to_be_aligned.filename.split("/")[-1].split(".")[0]
 # out_dir = "home/data/tests/test_pipes_alta/pre_event_201906/coreg"
 # out_dir = "home/data/tests/test_pipes_grossarl/pre_event_201808/out_P4.data/coreg"
 # out_dir = "home/data/tests/test_pipes_grossarl/pos_event_201907/out_P4.data/coreg"
-out_dir = "home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/coreg"
+# out_dir = "home/data/tests/test_pipes_grossarl/pos_event_202006_07_08/coreg"
+out_dir = "home/data/tests/test_pipes_grossarl/errors"
+# out_dir = "home/data/tests/test_pipes_grossarl/out_20170624_20170718/coreg"
 # out_dir = "home/data/ref_dem/coreg/huettschlag_uav/"
 # ref_dem_alias = 'ndh50cm'
 ref_dem_alias = 'dgm1m'
 
-aligned_dem_nk.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_nk.tif'))
-aligned_dem_deramp.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp.tif'))
-aligned_dem_deramp2.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp2.tif'))
-aligned_dem_deramp3.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp3.tif'))
-aligned_dem_icp.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_icp.tif'))
-aligned_dem_biascorr.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_biascorr.tif'))
-aligned_dem_p2.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p2.tif'))
-aligned_dem_p3.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p3.tif'))
-aligned_dem_p4.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p4.tif'))
-aligned_dem_p1.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p1.tif'))
-aligned_dem_p5.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p5.tif'))
+# aligned_dem_nk.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_nk.tif'))
+# aligned_dem_deramp.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp.tif'))
+# aligned_dem_deramp2.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp2.tif'))
+# aligned_dem_deramp3.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_deramp3.tif'))
+# aligned_dem_icp.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_icp.tif'))
+# aligned_dem_biascorr.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_biascorr.tif'))
+# aligned_dem_p2.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p2.tif'))
+# aligned_dem_p3.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p3.tif'))
+# aligned_dem_p4.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p4.tif'))
+# aligned_dem_p1.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p1.tif'))
+# aligned_dem_p5.save(os.path.join(out_dir, aligned_dem_ref_name + '_' + ref_dem_alias + '_coreg_p5.tif'))
 
 errors = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12]
 with open(os.path.join(out_dir, 'readme.txt'), 'w') as f:
