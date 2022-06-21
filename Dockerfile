@@ -15,7 +15,7 @@ COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
 # WORKDIR /usr/local/snap/snap/modules/
 # RUN jar -cvf org-esa-snap-snap-rcp.jar org
 # WORKDIR $HOME
-# RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
+RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
 # # COPY setup/update-snap.sh /tmp/update-snap.sh
 # # RUN bash /tmp/update-snap.sh
 
