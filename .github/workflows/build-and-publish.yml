@@ -44,8 +44,8 @@ jobs:
           context: ./
           # Note: tags has to be all lower-case
           tags: |
-            slidem:latest
-            ghcr.io/slidem:latest
+            loreabad6/slidem:latest
+            ghcr.io/loreabad6/slidem:latest
           # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
