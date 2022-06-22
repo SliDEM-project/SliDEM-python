@@ -1,9 +1,0 @@
-descartes
-fiona
-geopandas
-folium
-xmltodict
-pytest
-numpy==1.17.4
-setuptools==41.6.0
-wheel==0.33.6

@@ -3,21 +3,27 @@ FROM mundialis/esa-snap:ubuntu
 
 ## Move local packages to tmp file
 COPY setup/requirements.txt /tmp/base_requirements.txt
-COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
+# COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
 
 # Update snap-tools
-# This line results in an infinite loop, better use the .sh
+## This line results in an infinite loop, better use the .sh
 # RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
+## When not running behind a firewall, uncomment the next two lines
 COPY setup/update-snap.sh /tmp/update-snap.sh
 RUN bash /tmp/update-snap.sh
 
 ## Install requirements for python
 RUN python3.6 -m pip install --upgrade pip
-RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/stsa_requirements.txt
 RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.txt
 
-## include local package in python folder
-COPY setup/stsa/stsa/ /usr/lib/python3.6/stsa/
+# Install stsa
+RUN git clone https://github.com/pbrotoisworo/s1-tops-split-analyzer.git
+## After certain updates, support for python 3.6 was taken away, but I still need it!
+## So I go back to a previous version (December 2021)
+WORKDIR ./s1-tops-split-analyzer
+RUN git reset --hard 12ea576989cce7cbff5569ece6d17df52a17b0a9
+RUN python3.6 -m pip install -e .
+WORKDIR ..
 
 # Install snaphu
 # Installs outdated version:
