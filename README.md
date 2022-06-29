@@ -148,4 +148,36 @@ Remember that the download occurs on your local disk, if you have mounted a volu
 Be prepared and patient! :massage:
 
 ### 3. DEM generation
+Now it is finally time to generate some DEMs. 
+Taking the downloaded data and the query result form previous steps, we can now call the `2_dem_generation.py` module. 
 
+The main arguments passed into this module are the path to the downloaded data, 
+the CSV file which will be used to get the image pairs, a directory where the results are stored
+and the AOI to subset the area and to automatically extract bursts and subswaths. 
+
+Several other parameters can be passed to specific parts of the workflow. 
+Check the help for their descriptions and default values.
+```commandline
+# Usage example
+python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index 0 --aoi_path data/aoi/alta.geojson
+```
+```commandline
+# Get help
+python3.6 home/scripts/2_dem_generation.py -h
+```
+
+Depending on whether you have been using the container before, the processing might take more or less time.
+The main reason is that reference DEM data is being downloaded for the data. 
+
+**KNOWN ISSUES!**
+- If your AOI is at the coast, the SNAPHU exporting might fail without a warning. 
+This will of course result in faulty results. 
+- If your AOI intersects multiple subswaths, then unfortunately your process will
+exit with an error message. 
+
+This list is not exhaustive and we try to document these problems in our issue tracker.
+
+We are working to improve all these issues but 
+for the moment please be aware and patient with us :pray: 
+
+Feel free to open an issue if you find some new bug or have any request!
