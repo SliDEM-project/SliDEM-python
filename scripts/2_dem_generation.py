@@ -93,7 +93,7 @@ parser.add_argument(
     type=float,
     default=0,
     help='''If subsetting the area to the AOI, should a 
-    buffer around it be drawn? How big?'''
+    buffer around it be drawn? How big? Defaults to 0'''
 )
 parser.add_argument(
     '--output_projected',
@@ -175,33 +175,33 @@ os.chdir('home/')
 # output_dir = "data/tests/test_pipes_kleinarl"
 
 # Read in image pairs
-products = pd.read_csv(os.path.join(download_dir, query_result))
+products = pd.read_csv(os.path.join(args.download_dir, args.query_result))
 productsIn = products[products['Download']]
 
 # "before" image .zip
-if pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[pair_index]['MatchDate']):
-    file_path_1 = os.path.join(download_dir, productsIn.iloc[pair_index]['ReferenceID'] + '.zip')
+if pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']):
+    file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
 else:
-    file_path_1 = os.path.join(download_dir, productsIn.iloc[pair_index]['MatchID'] + '.zip')
+    file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
 # "after" image .zip
-if pd.to_datetime(productsIn.iloc[pair_index]['MatchDate']) > pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate']):
-    file_path_2 = os.path.join(download_dir, productsIn.iloc[pair_index]['MatchID'] + '.zip')
+if pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']) > pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']):
+    file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
 else:
-    file_path_2 = os.path.join(download_dir, productsIn.iloc[pair_index]['ReferenceID'] + '.zip')
+    file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
 
 # Hashmap is used to give us access to all JAVA operators
 HashMap = jpy.get_type('java.util.HashMap')
 parameters = HashMap()
 
 # Create output_dir if not existing
-if not os.path.exists(output_dir):
-    os.mkdir(output_dir)
+if not os.path.exists(args.output_dir):
+    os.mkdir(args.output_dir)
 
 # Create new directory on output dir with dates of reference and match image
 output_dir = os.path.join(
-    output_dir, 'out_' +
-    pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
-    pd.to_datetime(productsIn.iloc[pair_index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
+    args.output_dir, 'out_' +
+    pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
+    pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
@@ -223,7 +223,7 @@ def read_aoi(aoi, buffer):
 
 
 # [P1] Function to get subswaths and bursts
-def get_swath_burst(filename, aoi, polar=polarization):
+def get_swath_burst(filename, aoi, polar=args.polarization):
     print('Extracting subswath and bursts for AOI...')
     aoi_geom = read_aoi(aoi, buffer=0)
 
@@ -268,7 +268,7 @@ def write_BEAM_DIMAP_format(product, filename):
 
 
 # [P1] Function to apply TOPSAR split with SNAP
-def topsar_split(product, IW, firstBurstIndex, lastBurstIndex, polar=polarization):
+def topsar_split(product, IW, firstBurstIndex, lastBurstIndex, polar=args.polarization):
     print('Applying TOPSAR Split...')
     parameters.put('subswath', IW)
     parameters.put('firstBurstIndex', firstBurstIndex)
@@ -428,14 +428,15 @@ def phase_to_elev(product, unwrapped, dem):
 
 
 # [P4] Function to perform terrain correction
-def terrain_correction(source, band, projected=True):
+def terrain_correction(source, band=None, projected=True):
     print('Terrain correction...')
-    parameters.put('demName', dem)
+    parameters.put('demName', args.dem)
     parameters.put('imgResamplingMethod', 'BILINEAR_INTERPOLATION')
     if projected:
         parameters.put('mapProjection', 'AUTO:42001')
     # parameters.put('saveProjectedLocalIncidenceAngle', False)
-    parameters.put('sourceBands', band)
+    if band is not None:
+        parameters.put('sourceBands', band)
     parameters.put('saveSelectedSourceBand', True)
     parameters.put('nodataValueAtSea', False)
     parameters.put('pixelSpacingInMeter', 30.0)
@@ -529,7 +530,7 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
 
 def run_P2(out_dir, topophaseremove=False, dem=None,
            multilooking=True, ml_rangelooks=None,
-           goldsteinfiltering=True,
+           goldsteinfiltering=True, proj=True,
            subsetting=True, aoi=None, subset_buffer=0):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
@@ -552,10 +553,16 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
         product = goldstein_phase_filter(product)
     out_filename = os.path.join(out_dir, 'out_P2')
     write_BEAM_DIMAP_format(product, out_filename)
+    product_tc = terrain_correction(product, projected=proj)
+    out_filename_tc = os.path.join(out_dir, 'out_P2_tc')
+    write_BEAM_DIMAP_format(product_tc, out_filename_tc)
     if subsetting:
         product_ss = subset(product, aoi, buffer=subset_buffer)
         out_filename = os.path.join(out_dir, 'out_P2_subset')
         write_BEAM_DIMAP_format(product_ss, out_filename)
+        product_ss_tc = terrain_correction(product_ss, projected=proj)
+        out_filename_tc = os.path.join(out_dir, 'out_P2_subset_tc')
+        write_BEAM_DIMAP_format(product_ss_tc, out_filename_tc)
     print("Pipeline [P2] complete")
 
 
@@ -611,29 +618,30 @@ def run_P4(out_dir, dem=None, subset=True, proj=True):
 # Run the workflow
 run_P1(
     file1=file_path_1, file2=file_path_2,
-    aoi=aoi_path, polarization=polarization,
-    dem=dem, out_dir=output_dir
+    aoi=args.aoi_path, polarization=args.polarization,
+    dem=args.dem, out_dir=output_dir
 )
 
 run_P2(
     out_dir=output_dir,
-    multilooking=multilook_toggle, ml_rangelooks=multilook_range,
-    goldsteinfiltering=goldstein_toggle,
-    subsetting=subset_toggle, aoi=aoi_path,
-    subset_buffer=aoi_buffer
+    multilooking=args.multilook_toggle, ml_rangelooks=args.multilook_range,
+    goldsteinfiltering=args.goldstein_toggle,
+    proj=args.output_projected,
+    subsetting=args.subset_toggle, aoi=args.aoi_path,
+    subset_buffer=args.aoi_buffer
 )
 
 run_P3(
     out_dir=output_dir,
-    tiles=snaphu_tiles,
-    cost_mode=snaphu_costmode,
-    tile_overlap_row=snaphu_tile_overlap_row,
-    tile_overlap_col=snaphu_tile_overlap_col,
-    subset=subset_toggle
+    tiles=args.snaphu_tiles,
+    cost_mode=args.snaphu_costmode,
+    tile_overlap_row=args.snaphu_tile_overlap_row,
+    tile_overlap_col=args.snaphu_tile_overlap_col,
+    subset=args.subset_toggle
 )
 
 run_P4(
     out_dir=output_dir,
-    dem=dem, proj=output_projected,
-    subset=subset_toggle
+    dem=args.dem, proj=args.output_projected,
+    subset=args.subset_toggle
 )
