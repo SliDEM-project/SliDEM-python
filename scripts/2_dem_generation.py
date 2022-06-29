@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+# Import modules
+import argparse
 import glob
 import json
 import os
@@ -7,49 +11,183 @@ from snappy import ProductIO, jpy, GPF
 import stsa
 import subprocess
 
+# Arguments
+parser = argparse.ArgumentParser(
+  description='''Generate DEMs based on Sentinel-1 image pairs. 
+This module will go through four processing pipelines, which
+output different intermediate steps within the workflow,
+including interferogram and coherence layers.
+Each pipeline results in a different directory within the output
+directory set in the arguments. 
+
+The `query_result` file from the previous steps, should have been edited
+by the user to change the Download column to TRUE for those pair of scenes
+that seem suitable for processing, since this script loops over this file. 
+''',
+  epilog='''
+Versions: 
+  v0.1 - 06/2022 - Generate DEMs from S1
+Authors:
+  Lorena Abad - University of Salzburg - lorena.abad@plus.ac.at''',
+  formatter_class=argparse.RawTextHelpFormatter
+)
+parser.add_argument(
+  '--download_dir',
+  type=str,
+  default='data',
+  help='''relative path (refers to mounted volume) to the directory
+  where S1 scenes were downloaded'''
+)
+parser.add_argument(
+  '--output_dir',
+  type=str,
+  default='data',
+  help='''relative path (refers to mounted volume) to the directory where'
+  results should be written into'''
+)
+parser.add_argument(
+  '--query_result',
+  type=str,
+  help='''path to the CSV file with query results from 0_query_s1.py. 
+  Should be located in the specified download_dir, and should have been 
+  edited to set Download=True where relevant.'''
+)
+parser.add_argument(
+  '--pair_index',
+  type=int,
+  default=0,
+  help='''refers to the query_result CSV file, where the rows with Download=True
+  are filtered out to get a list of the image pairs to process. 
+  Set the index to indicate which row to process next.
+  Defaults to the first pair (pair_index=0)'''
+)
+parser.add_argument(
+    '--aoi_path',
+    type=str,
+    help='''path to GeoJSON file (WGS84 - EPSG:4326) with the
+    study area outline. This is used to extract the subswaths and
+    bursts automatically and to subset the area if desired.'''
+)
+parser.add_argument(
+    '--polarization',
+    type=str,
+    default="VV",
+    help='''Set polarization to use, defaults to VV.'''
+)
+parser.add_argument(
+    '--dem',
+    type=str,
+    default="Copernicus 30m Global DEM",
+    help='''Set DEM for back-geocoding, defaults to
+    Copernicus 30m Global DEM.'''
+)
+parser.add_argument(
+    '--subset_toggle',
+    type=bool,
+    default=True,
+    help='''Should the process be performed in a subset corresponding to the
+    given AOI?, defaults to True'''
+)
+parser.add_argument(
+    '--aoi_buffer',
+    type=float,
+    default=0,
+    help='''If subsetting the area to the AOI, should a 
+    buffer around it be drawn? How big?'''
+)
+parser.add_argument(
+    '--output_projected',
+    type=bool,
+    default=True,
+    help='''Should the results be in WGS84/UTM for the final elevation
+    product?, defaults to True'''
+)
+parser.add_argument(
+    '--multilook_toggle',
+    type=bool,
+    default=True,
+    help='''Should multilooking be performed?, defaults to True'''
+)
+parser.add_argument(
+    '--goldstein_toggle',
+    type=bool,
+    default=True,
+    help='''Should Goldstein filtering be applied?, defaults to True'''
+)
+parser.add_argument(
+    '--multilook_range',
+    type=int,
+    default=6,
+    help='''Number of multilook range, defaults to 6'''
+)
+parser.add_argument(
+    '--snaphu_costmode',
+    type=str,
+    default='TOPO',
+    help='''Cost mode parameter for snaphu export. 
+    Either TOPO or SMOOTH are viable options.
+    DEFO is for deformation and not recommended.
+    Defaults to TOPO'''
+)
+parser.add_argument(
+    '--snaphu_tiles',
+    type=int,
+    default=1,
+    help='''Number of tiles parameter for snaphu export. 
+    (Usually increasing this argument causes problems).
+    Defaults to 1'''
+)
+parser.add_argument(
+    '--snaphu_tile_overlap_row',
+    type=float,
+    default=200,
+    help='''If more than one tile is set, what should the overlap
+    between tiles be for the rows. 
+    Defaults to 200'''
+)
+parser.add_argument(
+    '--snaphu_tile_overlap_col',
+    type=float,
+    default=200,
+    help='''If more than one tile is set, what should the overlap
+    between tiles be for the columns. 
+    Defaults to 200'''
+)
+args = parser.parse_args()
+
 # Set home as current directory
 os.chdir('home/')
 
 # Arguments
-download_dir = "data/s1/grossarl"
-query_result = "s1_scenes_grossarl_2017.csv"
-index = 3
+# download_dir = "data/s1/gjerdrum"
+# query_result = "s1_scenes_gjerdrum_2021.csv"
+# index = 1
+# aoi in .geojson
+# aoi_path = "data/aoi/Alta.geojson"
+# aoi_path = "data/aoi/Gjerdrum.geojson"
+# aoi_path = "data/aoi/Grossarl.geojson"
+# aoi_path = "data/aoi/Kleinarl.geojson"
+
+# output directory
+# output_dir = "data/tests/test_pipes_alta"
+# output_dir = "data/tests/test_pipes_gjerdrum"
+# output_dir = "data/tests/test_pipes_grossarl"
+# output_dir = "data/tests/test_pipes_kleinarl"
 
 # Read in image pairs
 products = pd.read_csv(os.path.join(download_dir, query_result))
 productsIn = products[products['Download']]
 
 # "before" image .zip
-if pd.to_datetime(productsIn.iloc[index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[index]['MatchDate']):
-    file_path_1 = os.path.join(download_dir, productsIn.iloc[index]['ReferenceID'] + '.zip')
+if pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[pair_index]['MatchDate']):
+    file_path_1 = os.path.join(download_dir, productsIn.iloc[pair_index]['ReferenceID'] + '.zip')
 else:
-    file_path_1 = os.path.join(download_dir, productsIn.iloc[index]['MatchID'] + '.zip')
+    file_path_1 = os.path.join(download_dir, productsIn.iloc[pair_index]['MatchID'] + '.zip')
 # "after" image .zip
-if pd.to_datetime(productsIn.iloc[index]['MatchDate']) > pd.to_datetime(productsIn.iloc[index]['ReferenceDate']):
-    file_path_2 = os.path.join(download_dir, productsIn.iloc[index]['MatchID'] + '.zip')
+if pd.to_datetime(productsIn.iloc[pair_index]['MatchDate']) > pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate']):
+    file_path_2 = os.path.join(download_dir, productsIn.iloc[pair_index]['MatchID'] + '.zip')
 else:
-    file_path_2 = os.path.join(download_dir, productsIn.iloc[index]['ReferenceID'] + '.zip')
-
-# aoi in .geojson
-# aoi_path = "data/aoi/Alta.geojson"
-# aoi_path = "data/aoi/Gjerdrum.geojson"
-aoi_path = "data/aoi/Grossarl.geojson"
-# aoi_path = "data/aoi/Kleinarl.geojson"
-
-# output directory
-# output_dir = "data/tests/test_pipes_alta"
-# output_dir = "data/tests/test_pipes_gjerdrum"
-output_dir = "data/tests/test_pipes_grossarl"
-# output_dir = "data/tests/test_pipes_kleinarl"
-
-# polarization: default "VV"
-polarization = "VV"
-# DEM for back-geocoding
-dem = "Copernicus 30m Global DEM"
-# Should the process be performed in a subset corresponding to the given AOI?
-subset_toggle = True
-# Should the results be in WGS84/UTM for the final elevation product?
-output_projected = True
+    file_path_2 = os.path.join(download_dir, productsIn.iloc[pair_index]['ReferenceID'] + '.zip')
 
 # Hashmap is used to give us access to all JAVA operators
 HashMap = jpy.get_type('java.util.HashMap')
@@ -62,8 +200,8 @@ if not os.path.exists(output_dir):
 # Create new directory on output dir with dates of reference and match image
 output_dir = os.path.join(
     output_dir, 'out_' +
-    pd.to_datetime(productsIn.iloc[index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
-    pd.to_datetime(productsIn.iloc[index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
+    pd.to_datetime(productsIn.iloc[pair_index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
+    pd.to_datetime(productsIn.iloc[pair_index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
@@ -375,8 +513,10 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     file.close
 
     # Proceed to SNAP workflow
-    product_TOPSAR_1 = topsar_split(product_1, IW, firstBurstIndex_1, lastBurstIndex_1)
-    product_TOPSAR_2 = topsar_split(product_2, IW, firstBurstIndex_2, lastBurstIndex_2)
+    product_TOPSAR_1 = topsar_split(product_1, IW,
+                                    firstBurstIndex_1, lastBurstIndex_1)
+    product_TOPSAR_2 = topsar_split(product_2,
+                                    IW, firstBurstIndex_2, lastBurstIndex_2)
     product_orbitFile_1 = apply_orbit_file(product_TOPSAR_1)
     product_orbitFile_2 = apply_orbit_file(product_TOPSAR_2)
     product = back_geocoding([product_orbitFile_1, product_orbitFile_2], dem)
@@ -399,7 +539,8 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     )
     file.close
 
-    in_filename = os.path.join(out_dir, 'out_P1')  # takes result from previous pipeline
+    # takes result from previous pipeline
+    in_filename = os.path.join(out_dir, 'out_P1')
     product = read(in_filename + ".dim")  # reads .dim
     product = interferogram(product)
     product = topsar_deburst(product)
@@ -418,25 +559,30 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     print("Pipeline [P2] complete")
 
 
-def run_P3(out_dir, tiles, cost_mode, tile_overlap_row, tile_overlap_col, subset=True):
+def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
+           tile_overlap_col, subset=True):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-        'Tiles overlap: row ' + str(tile_overlap_row) + ', col ' + str(tile_overlap_row) + '\n'
+        'Tiles overlap: row ' + str(tile_overlap_row) +
+        ', col ' + str(tile_overlap_row) + '\n'
         'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
     if subset:
-        in_filename = os.path.join(out_dir, 'out_P2_subset')  # takes subset result from previous pipeline
+        # takes subset result from previous pipeline
+        in_filename = os.path.join(out_dir, 'out_P2_subset')
         product = read(in_filename + ".dim")  # reads .dim
     else:
-        in_filename = os.path.join(out_dir, 'out_P2')  # takes subset result from previous pipeline
+        # takes result from previous pipeline
+        in_filename = os.path.join(out_dir, 'out_P2')
         product = read(in_filename + ".dim")  # reads .dim
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
-    snaphu_export(product, out_dir_snaphu, tiles, cost_mode, tile_overlap_row, tile_overlap_col)
+    snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
+                  tile_overlap_row, tile_overlap_col)
     snaphu_unwrapping(out_dir_snaphu)
     # TODO: if unwrapping fails (no .img file is generated),
     #  pass on the error from snaphu and don't go on with the script
@@ -445,10 +591,12 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row, tile_overlap_col, subset
 
 def run_P4(out_dir, dem=None, subset=True, proj=True):
     if subset:
-        in_filename = os.path.join(out_dir, 'out_P2_subset')  # takes subset result from previous pipeline
+        #  takes subset result from previous pipeline
+        in_filename = os.path.join(out_dir, 'out_P2_subset')
         product = read(in_filename + ".dim")  # reads .dim
     else:
-        in_filename = os.path.join(out_dir, 'out_P2')  # takes result from previous pipeline
+        # takes result from previous pipeline
+        in_filename = os.path.join(out_dir, 'out_P2')
         product = read(in_filename + ".dim")  # reads .dim
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     unwrapped_fn = os.path.join(out_dir_snaphu, 'unwrapped')
@@ -469,20 +617,18 @@ run_P1(
 
 run_P2(
     out_dir=output_dir,
-    multilooking=True, ml_rangelooks=6,
-    goldsteinfiltering=True,
+    multilooking=multilook_toggle, ml_rangelooks=multilook_range,
+    goldsteinfiltering=goldstein_toggle,
     subsetting=subset_toggle, aoi=aoi_path,
-    subset_buffer=0
+    subset_buffer=aoi_buffer
 )
 
 run_P3(
     out_dir=output_dir,
-    tiles=1,
-    # Either TOPO or SMOOTH are viable options.
-    # DEFO is for deformation and not recommended.
-    cost_mode='TOPO',
-    tile_overlap_row=200,
-    tile_overlap_col=200,
+    tiles=snaphu_tiles,
+    cost_mode=snaphu_costmode,
+    tile_overlap_row=snaphu_tile_overlap_row,
+    tile_overlap_col=snaphu_tile_overlap_col,
     subset=subset_toggle
 )
 
