@@ -164,22 +164,6 @@ args = parser.parse_args()
 # Set home as current directory
 os.chdir('home/')
 
-# Arguments
-# download_dir = "data/s1/gjerdrum"
-# query_result = "s1_scenes_gjerdrum_2021.csv"
-# index = 1
-# aoi in .geojson
-# aoi_path = "data/aoi/Alta.geojson"
-# aoi_path = "data/aoi/Gjerdrum.geojson"
-# aoi_path = "data/aoi/Grossarl.geojson"
-# aoi_path = "data/aoi/Kleinarl.geojson"
-
-# output directory
-# output_dir = "data/tests/test_pipes_alta"
-# output_dir = "data/tests/test_pipes_gjerdrum"
-# output_dir = "data/tests/test_pipes_grossarl"
-# output_dir = "data/tests/test_pipes_kleinarl"
-
 # Read in image pairs
 products = pd.read_csv(os.path.join(args.download_dir, args.query_result))
 productsIn = products[products['Download']]
@@ -635,6 +619,8 @@ def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
     unwrapped = read(unwrapped_fn + ".dim")
     product_unwrapped = snaphu_import(product, unwrapped)
     elevation = phase_to_elev(product_unwrapped, dem)
+    elevation.getBand('elevation').setGeophysicalNoDataValue(-99999)
+    elevation.getBand('elevation').setNoDataValueUsed(True)
     elevation_tc = terrain_correction(elevation, band='elevation', projected=proj, pixel_size=pixel_size)
     out_filename = os.path.join(out_dir, 'out_P4')
     write_BEAM_DIMAP_format(elevation_tc, out_filename)
@@ -643,6 +629,12 @@ def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
     write_TIFF_format(elevation_tc, out_elev_tiff)
     # Terrain correct coherence, wrapped and unwrapped phase and save to TIFF
     band_unw = list(product_unwrapped.getBandNames())
+    product_unwrapped.getBand(band_unw[3]).setGeophysicalNoDataValue(-99999)
+    product_unwrapped.getBand(band_unw[3]).setNoDataValueUsed(True)
+    product_unwrapped.getBand(band_unw[4]).setGeophysicalNoDataValue(-99999)
+    product_unwrapped.getBand(band_unw[4]).setNoDataValueUsed(True)
+    product_unwrapped.getBand(band_unw[5]).setGeophysicalNoDataValue(-99999)
+    product_unwrapped.getBand(band_unw[5]).setNoDataValueUsed(True)
     coh_tc = terrain_correction(product_unwrapped, band=band_unw[4], projected=proj, pixel_size=pixel_size)
     out_coh_tiff = os.path.join(out_dir, date_bundle + '_coherence.tif')
     write_TIFF_format(coh_tc, out_coh_tiff)
