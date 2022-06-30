@@ -103,6 +103,12 @@ parser.add_argument(
     product?, defaults to True'''
 )
 parser.add_argument(
+    '--pixel_size',
+    type=float,
+    default=30.0,
+    help='''When applying terrain correction, what pixel size to use, defaults to 30'''
+)
+parser.add_argument(
     '--multilook_toggle',
     type=bool,
     default=True,
@@ -142,7 +148,7 @@ parser.add_argument(
     type=float,
     default=200,
     help='''If more than one tile is set, what should the overlap
-    between tiles be for the rows. 
+    between tiles be for the rows. Ignored when snaphu_tiles = 1.
     Defaults to 200'''
 )
 parser.add_argument(
@@ -198,12 +204,26 @@ if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
 
 # Create new directory on output dir with dates of reference and match image
-output_dir = os.path.join(
-    args.output_dir, 'out_' +
-    pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d') + '_' +
-    pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate'], yearfirst=False, dayfirst=True).strftime('%Y%m%d'))
+ref_date_str = pd.to_datetime(
+    productsIn.iloc[args.pair_index]['ReferenceDate'],
+    yearfirst=False,
+    dayfirst=True
+).strftime('%Y%m%d')
+mat_date_str = pd.to_datetime(
+        productsIn.iloc[args.pair_index]['MatchDate'],
+        yearfirst=False,
+        dayfirst=True
+    ).strftime('%Y%m%d')
+date_bundle = ref_date_str + '_' + mat_date_str
+output_dir = os.path.join(args.output_dir, 'out_' + date_bundle)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
+
+# Get some metadata from the CSV file:
+ref_date = productsIn.iloc[args.pair_index]['ReferenceDate']
+mat_date = productsIn.iloc[args.pair_index]['MatchDate']
+passf = productsIn.iloc[args.pair_index]['Pass']
+orbit = productsIn.iloc[args.pair_index]['Orbit']
 
 # Functions:
 # From this section I define a set of functions that are called
@@ -257,7 +277,7 @@ def read(filename):
 
 
 # [P1|P2|P3] Function to write SNAP product to GeoTIFF
-def write(product, filename):
+def write_TIFF_format(product, filename):
     ProductIO.writeProduct(product, filename, "GeoTiff")
 
 
@@ -415,20 +435,26 @@ def snaphu_unwrapping(snaphu_exp_folder):
     print('Phase unwrapping performed successfully.')
 
 
-# [P4] Function to transform phase to elevation
-def phase_to_elev(product, unwrapped, dem):
-    print('Converting phase to elevation...')
+# [P4] Function to import snaphu object
+def snaphu_import(product, unwrapped):
+    print('Importing snaphu product...')
     snaphu_files = jpy.array('org.esa.snap.core.datamodel.Product', 2)
     snaphu_files[0] = product
     snaphu_files[1] = unwrapped
-    snaphu_import = GPF.createProduct("SnaphuImport", parameters, snaphu_files)
+    output = GPF.createProduct("SnaphuImport", parameters, snaphu_files)
+    return output
+
+
+# [P4] Function to transform phase to elevation
+def phase_to_elev(unwrapped_product, dem):
+    print('Converting phase to elevation...')
     parameters.put("demName", dem)
-    output = GPF.createProduct("PhaseToElevation", parameters, snaphu_import)
+    output = GPF.createProduct("PhaseToElevation", parameters, unwrapped_product)
     return output
 
 
 # [P4] Function to perform terrain correction
-def terrain_correction(source, band=None, projected=True):
+def terrain_correction(source, band=None, projected=True, pixel_size=30.0):
     print('Terrain correction...')
     parameters.put('demName', args.dem)
     parameters.put('imgResamplingMethod', 'BILINEAR_INTERPOLATION')
@@ -439,7 +465,7 @@ def terrain_correction(source, band=None, projected=True):
         parameters.put('sourceBands', band)
     parameters.put('saveSelectedSourceBand', True)
     parameters.put('nodataValueAtSea', False)
-    parameters.put('pixelSpacingInMeter', 30.0)
+    parameters.put('pixelSpacingInMeter', pixel_size)
     output = GPF.createProduct('Terrain-Correction', parameters, source)
     return output
 
@@ -451,9 +477,14 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     file.write(
         'USER-SETTINGS FOR PIPELINE 1:\n' +
         'ReferenceID path: ' + file1 + '\n' +
+        'ReferenceID date: ' + ref_date + '\n' +
         'MatchID path: ' + file2 + '\n' +
+        'MatchID date: ' + mat_date + '\n' +
         'Polarization: ' + polarization + '\n' +
+        'Pass: ' + passf + '\n' +
+        'Orbit: ' + str(orbit) + '\n' +
         'DEM for back-geocoding: ' + dem + '\n'
+
     )
     file.close
 
@@ -530,7 +561,7 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
 
 def run_P2(out_dir, topophaseremove=False, dem=None,
            multilooking=True, ml_rangelooks=None,
-           goldsteinfiltering=True, proj=True,
+           goldsteinfiltering=True,
            subsetting=True, aoi=None, subset_buffer=0):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
@@ -553,16 +584,10 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
         product = goldstein_phase_filter(product)
     out_filename = os.path.join(out_dir, 'out_P2')
     write_BEAM_DIMAP_format(product, out_filename)
-    product_tc = terrain_correction(product, projected=proj)
-    out_filename_tc = os.path.join(out_dir, 'out_P2_tc')
-    write_BEAM_DIMAP_format(product_tc, out_filename_tc)
     if subsetting:
         product_ss = subset(product, aoi, buffer=subset_buffer)
         out_filename = os.path.join(out_dir, 'out_P2_subset')
         write_BEAM_DIMAP_format(product_ss, out_filename)
-        product_ss_tc = terrain_correction(product_ss, projected=proj)
-        out_filename_tc = os.path.join(out_dir, 'out_P2_subset_tc')
-        write_BEAM_DIMAP_format(product_ss_tc, out_filename_tc)
     print("Pipeline [P2] complete")
 
 
@@ -596,7 +621,7 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     print("Pipeline [P3] complete")
 
 
-def run_P4(out_dir, dem=None, subset=True, proj=True):
+def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
     if subset:
         #  takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
@@ -608,10 +633,25 @@ def run_P4(out_dir, dem=None, subset=True, proj=True):
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     unwrapped_fn = os.path.join(out_dir_snaphu, 'unwrapped')
     unwrapped = read(unwrapped_fn + ".dim")
-    product = phase_to_elev(product, unwrapped, dem)
-    product = terrain_correction(product, band='elevation', projected=proj)
+    product_unwrapped = snaphu_import(product, unwrapped)
+    elevation = phase_to_elev(product_unwrapped, dem)
+    elevation_tc = terrain_correction(elevation, band='elevation', projected=proj, pixel_size=pixel_size)
     out_filename = os.path.join(out_dir, 'out_P4')
-    write_BEAM_DIMAP_format(product, out_filename)
+    write_BEAM_DIMAP_format(elevation_tc, out_filename)
+    # Save elevation to TIFF
+    out_elev_tiff = os.path.join(out_dir, date_bundle + '_elevation.tif')
+    write_TIFF_format(elevation_tc, out_elev_tiff)
+    # Terrain correct coherence, wrapped and unwrapped phase and save to TIFF
+    band_unw = list(product_unwrapped.getBandNames())
+    coh_tc = terrain_correction(product_unwrapped, band=band_unw[4], projected=proj, pixel_size=pixel_size)
+    out_coh_tiff = os.path.join(out_dir, date_bundle + '_coherence.tif')
+    write_TIFF_format(coh_tc, out_coh_tiff)
+    wrapped_tc = terrain_correction(product_unwrapped, band=band_unw[3], projected=proj, pixel_size=pixel_size)
+    out_w_tiff = os.path.join(out_dir, date_bundle + '_wrapped_phase.tif')
+    write_TIFF_format(wrapped_tc, out_w_tiff)
+    unwrapped_tc = terrain_correction(product_unwrapped, band=band_unw[5], projected=proj, pixel_size=pixel_size)
+    out_unw_tiff = os.path.join(out_dir, date_bundle + '_unwrapped_phase.tif')
+    write_TIFF_format(unwrapped_tc, out_unw_tiff)
     print("Pipeline [P4] complete")
 
 
@@ -626,9 +666,8 @@ run_P2(
     out_dir=output_dir,
     multilooking=args.multilook_toggle, ml_rangelooks=args.multilook_range,
     goldsteinfiltering=args.goldstein_toggle,
-    proj=args.output_projected,
     subsetting=args.subset_toggle, aoi=args.aoi_path,
-    subset_buffer=args.aoi_buffer
+    subset_buffer=args.aoi_buffer,
 )
 
 run_P3(
@@ -642,6 +681,8 @@ run_P3(
 
 run_P4(
     out_dir=output_dir,
-    dem=args.dem, proj=args.output_projected,
-    subset=args.subset_toggle
+    dem=args.dem,
+    proj=args.output_projected,
+    subset=args.subset_toggle,
+    pixel_size=args.pixel_size
 )
