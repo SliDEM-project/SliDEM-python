@@ -51,7 +51,10 @@ session.auth_with_creds(
 )
 
 # Download from URL list
-products = pd.read_csv(os.path.join(args.download_folder, args.query_result))
+products = pd.read_csv(
+  os.path.join(args.download_folder, args.query_result),
+  sep=None, engine='python'
+)
 productsIn = products[products['Download']]
 
 refIDs = productsIn['ReferenceID'].tolist()
