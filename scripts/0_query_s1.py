@@ -98,6 +98,10 @@ args = parser.parse_args()
 load_dotenv('home/.env')
 os.chdir('home/')
 
+# Create download directory if not exisiting
+if not os.path.exists(args.download_folder):
+    os.mkdir(args.download_folder)
+
 # Setup params
 dates = '[' + args.date_start + 'T00:00:00.000Z TO ' + args.date_end + 'T00:00:00.000Z]'
 footprint = geojson_to_wkt(read_geojson(args.aoi))
