@@ -75,7 +75,7 @@ parser.add_argument(
 )
 parser.add_argument(
     '--btempth',
-    type=int,
+    type=float,
     default=60,
     help='''temporal baseline threshold to query matching scenes. 
     What is the maximum time that matching scenes should have between each other?
@@ -83,12 +83,21 @@ parser.add_argument(
     This is checked forward and backwards.'''
 )
 parser.add_argument(
-    '--bperpth',
-    type=int,
+    '--bperpth_min',
+    type=float,
     default=140,
     help='''perpendicular baseline threshold to query matching scenes. 
     What is the minimum perpendicular baseline between matching scenes?
     Defaults to 140 meters.
+    This is checked forward and backwards.'''
+)
+parser.add_argument(
+    '--bperpth_max',
+    type=float,
+    default=300,
+    help='''perpendicular baseline threshold to query matching scenes. 
+    What is the maximum perpendicular baseline between matching scenes?
+    Defaults to 300 meters.
     This is checked forward and backwards.'''
 )
 args = parser.parse_args()
@@ -189,7 +198,8 @@ for i in range(0, len(geo_ids)):
         baseline[['TemporalBaseline', 'PerpendicularBaseline']].apply(pd.to_numeric)
 
     baseline_filter = baseline[(abs(baseline['TemporalBaseline']) <= args.btempth) &
-                               (abs(baseline['PerpendicularBaseline']) >= args.bperpth)]
+                               (abs(baseline['PerpendicularBaseline']) >= args.bperpth_min) &
+                               (abs(baseline['PerpendicularBaseline']) <= args.bperpth_max)]
     baseline_df = baseline_filter[
         ['Granule Name', 'Path Number', 'Ascending or Descending?', 'TemporalBaseline', 'PerpendicularBaseline']]
     baseline_df.rename(columns={'Granule Name': 'MatchID', 'Path Number': 'Orbit', 'Ascending or Descending?': 'Pass'},
