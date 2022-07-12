@@ -6,6 +6,8 @@ COPY setup/requirements.txt /tmp/base_requirements.txt
 # COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
 
 # Update snap-tools
+# If not running locally GitHub Actions will take care of compiling,
+# only pulling the image from DockerHub is needed then
 ## This line results in an infinite loop, better use the .sh
 # RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
 ## When not running behind a firewall, uncomment the next two lines
@@ -26,9 +28,14 @@ RUN python3.6 -m pip install -e .
 WORKDIR ..
 
 # Install snaphu
-# Installs outdated version:
-RUN apt update && \
-    apt install snaphu
+RUN wget --no-check-certificate  \
+    https://web.stanford.edu/group/radar/softwareandlinks/sw/snaphu/snaphu-v2.0.5.tar.gz \
+    && tar -xvf snaphu-v2.0.5.tar.gz \
+    && rm snaphu-v2.0.5.tar.gz \
+    && mkdir -p /usr/local/man/man1/ \
+    && cd ./snaphu-v2.0.5/src \
+    && make install \
+    && make Clean
 
 # Install GDAL
 RUN apt-get update &&\
