@@ -319,17 +319,17 @@ def interferogram(product):
     parameters.put("Number of \"Flat Earth\" estimation points", 501)
     parameters.put("Orbit interpolation degree", 3)
     parameters.put("Include coherence estimation", True)
-    parameters.put("Square Pixel", True)
-    parameters.put("Independent Window Sizes", False)
-    parameters.put("Coherence Azimuth Window Size", 10)
-    parameters.put("Coherence Range Window Size", 2)
+    parameters.put("Square Pixel", True) #var
+    parameters.put("Independent Window Sizes", False) #opposite to square pixel
+    parameters.put("Coherence Azimuth Window Size", 2) #var
+    parameters.put("Coherence Range Window Size", 10) #var
     return GPF.createProduct("Interferogram", parameters, product)
 
 
 # [P2] Function for TOPSAR deburst
 def topsar_deburst(source):
     print('Running TOPSAR deburst...')
-    parameters.put("Polarisations", "VV,VH")
+    parameters.put("Polarisations", "VV")
     output = GPF.createProduct("TOPSAR-Deburst", parameters, source)
     return output
 
@@ -353,7 +353,7 @@ def topophase_removal(product, dem):
 def multilook(product, ML_nRgLooks):
     print('Multi-looking...')
     parameters.put('grSquarePixel', True)
-    parameters.put("nRgLooks", ML_nRgLooks)
+    parameters.put("nRgLooks", ML_nRgLooks) # half of range looks on metadata
     output = GPF.createProduct("Multilook", parameters, product)
     return output
 
@@ -362,10 +362,10 @@ def multilook(product, ML_nRgLooks):
 def goldstein_phase_filter(product):
     print('Applying Goldstein phase filtering...')
     parameters.put("Adaptive Filter Exponent in(0,1]:", 1.0)
-    parameters.put("FFT Size", 64)
-    parameters.put("Window Size", 3)
-    parameters.put("Use coherence mask", False)
-    parameters.put("Coherence Threshold in[0,1]:", 0.2)
+    parameters.put("FFT Size", 64) #var
+    parameters.put("Window Size", 3) #var
+    parameters.put("Use coherence mask", False) #var
+    parameters.put("Coherence Threshold in[0,1]:", 0.2) #var
     return GPF.createProduct("GoldsteinPhaseFiltering", parameters, product)
 
 
@@ -656,9 +656,11 @@ run_P1(
 
 run_P2(
     out_dir=output_dir,
-    multilooking=args.multilook_toggle, ml_rangelooks=args.multilook_range,
+    multilooking=args.multilook_toggle,
+    ml_rangelooks=args.multilook_range,
     goldsteinfiltering=args.goldstein_toggle,
-    subsetting=args.subset_toggle, aoi=args.aoi_path,
+    subsetting=args.subset_toggle,
+    aoi=args.aoi_path,
     subset_buffer=args.aoi_buffer,
 )
 
