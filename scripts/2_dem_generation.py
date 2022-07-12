@@ -109,10 +109,35 @@ parser.add_argument(
     help='''When applying terrain correction, what pixel size to use, defaults to 30'''
 )
 parser.add_argument(
+    '--ifg_squarepixel',
+    type=bool,
+    default=True,
+    help='''Should the resulting interferogram have a squared pixel size (True, default)
+    or independent window sizes'''
+)
+parser.add_argument(
+    '--ifg_cohwin_rg',
+    type=int,
+    default=10,
+    help='''Coherence range window size (defaults to 10)'''
+)
+parser.add_argument(
+    '--ifg_cohwin_az',
+    type=int,
+    default=2,
+    help='''Coherence azimuth window size (defaults to 2, ignored when ifg_squarepixel=True)'''
+)
+parser.add_argument(
     '--multilook_toggle',
     type=bool,
     default=True,
     help='''Should multilooking be performed?, defaults to True'''
+)
+parser.add_argument(
+    '--multilook_range',
+    type=int,
+    default=6,
+    help='''Number of multilook range, defaults to 6'''
 )
 parser.add_argument(
     '--goldstein_toggle',
@@ -121,10 +146,29 @@ parser.add_argument(
     help='''Should Goldstein filtering be applied?, defaults to True'''
 )
 parser.add_argument(
-    '--multilook_range',
+    '--gpf_fftsize',
     type=int,
-    default=6,
-    help='''Number of multilook range, defaults to 6'''
+    default=64,
+    help='''FFT size, defaults to 64. Options 32, 64, 128, 256'''
+)
+parser.add_argument(
+    '--gpf_win',
+    type=int,
+    default=3,
+    help='''FFT window size, defaults to 3. Options: 3, 5, 7'''
+)
+parser.add_argument(
+    '--gpf_cohmask',
+    type=bool,
+    default=False,
+    help='''Use coherence mask?, defaults to False'''
+)
+parser.add_argument(
+    '--gpf_cohth',
+    type=float,
+    default=0.2,
+    help='''If coherence mask is used, what should be the threshold? 
+    Between 0 and 1, Defaults to 0.2'''
 )
 parser.add_argument(
     '--snaphu_costmode',
@@ -312,24 +356,24 @@ def enhanced_spectral_diversity(product):
 
 
 # [P2] Function to calculate the interferogram
-def interferogram(product):
+def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
     print('Creating interferogram...')
     parameters.put("Subtract flat-earth phase", True)
     parameters.put("Degree of \"Flat Earth\" polynomial", 5)
     parameters.put("Number of \"Flat Earth\" estimation points", 501)
     parameters.put("Orbit interpolation degree", 3)
     parameters.put("Include coherence estimation", True)
-    parameters.put("Square Pixel", True) #var
-    parameters.put("Independent Window Sizes", False) #opposite to square pixel
-    parameters.put("Coherence Azimuth Window Size", 2) #var
-    parameters.put("Coherence Range Window Size", 10) #var
+    parameters.put("Square Pixel", ifg_squarepixel)
+    parameters.put("Independent Window Sizes", not ifg_squarepixel)
+    parameters.put("Coherence Range Window Size", ifg_cohwin_rg)
+    parameters.put("Coherence Azimuth Window Size", ifg_cohwin_az)
     return GPF.createProduct("Interferogram", parameters, product)
 
 
 # [P2] Function for TOPSAR deburst
 def topsar_deburst(source):
     print('Running TOPSAR deburst...')
-    parameters.put("Polarisations", "VV")
+    parameters.put("Polarisations", args.polarization)
     output = GPF.createProduct("TOPSAR-Deburst", parameters, source)
     return output
 
@@ -359,13 +403,14 @@ def multilook(product, ML_nRgLooks):
 
 
 # [P2] Function to apply Goldstein phase filtering (optional)
-def goldstein_phase_filter(product):
+def goldstein_phase_filter(product, gpf_fftsize, gpf_win,
+                           gpf_cohmask, gpf_cohth):
     print('Applying Goldstein phase filtering...')
     parameters.put("Adaptive Filter Exponent in(0,1]:", 1.0)
-    parameters.put("FFT Size", 64) #var
-    parameters.put("Window Size", 3) #var
-    parameters.put("Use coherence mask", False) #var
-    parameters.put("Coherence Threshold in[0,1]:", 0.2) #var
+    parameters.put("FFT Size", gpf_fftsize)
+    parameters.put("Window Size", gpf_win)
+    parameters.put("Use coherence mask", gpf_cohmask)
+    parameters.put("Coherence Threshold in[0,1]:", gpf_cohth)
     return GPF.createProduct("GoldsteinPhaseFiltering", parameters, product)
 
 
@@ -544,9 +589,13 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
 
 
 def run_P2(out_dir, topophaseremove=False, dem=None,
-           multilooking=True, ml_rangelooks=None,
-           goldsteinfiltering=True,
-           subsetting=True, aoi=None, subset_buffer=0):
+           ifg_squarepixel=None, ifg_cohwin_rg=None,
+           ifg_cohwin_az=None,
+           multilooking=None, ml_rangelooks=None,
+           goldsteinfiltering=None,
+           gpf_fftsize=None, gpf_win=None,
+           gpf_cohmask=None, gpf_cohth=None,
+           subsetting=None, aoi=None, subset_buffer=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
@@ -558,14 +607,17 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     # takes result from previous pipeline
     in_filename = os.path.join(out_dir, 'out_P1')
     product = read(in_filename + ".dim")  # reads .dim
-    product = interferogram(product)
+    product = interferogram(product,
+                            ifg_squarepixel, ifg_cohwin_rg, ifg_cohwin_az)
     product = topsar_deburst(product)
     if topophaseremove:
         product = topophase_removal(product, dem)
     if multilooking:
         product = multilook(product, ML_nRgLooks=ml_rangelooks)
     if goldsteinfiltering:
-        product = goldstein_phase_filter(product)
+        product = goldstein_phase_filter(product,
+                                         gpf_fftsize, gpf_win,
+                                         gpf_cohmask, gpf_cohth)
     out_filename = os.path.join(out_dir, 'out_P2')
     write_BEAM_DIMAP_format(product, out_filename)
     if subsetting:
@@ -576,7 +628,7 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
 
 
 def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
-           tile_overlap_col, subset=True):
+           tile_overlap_col, subset=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
@@ -605,7 +657,7 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     print("Pipeline [P3] complete")
 
 
-def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
+def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
     if subset:
         #  takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
@@ -621,7 +673,8 @@ def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
     elevation = phase_to_elev(product_unwrapped, dem)
     elevation.getBand('elevation').setGeophysicalNoDataValue(-99999)
     elevation.getBand('elevation').setNoDataValueUsed(True)
-    elevation_tc = terrain_correction(elevation, band='elevation', projected=proj, pixel_size=pixel_size)
+    elevation_tc = terrain_correction(elevation, band='elevation',
+                                      projected=proj, pixel_size=pixel_size)
     out_filename = os.path.join(out_dir, 'out_P4')
     write_BEAM_DIMAP_format(elevation_tc, out_filename)
     # Save elevation to TIFF
@@ -635,13 +688,16 @@ def run_P4(out_dir, dem=None, subset=True, proj=True, pixel_size=30.0):
     product_unwrapped.getBand(band_unw[4]).setNoDataValueUsed(True)
     product_unwrapped.getBand(band_unw[5]).setGeophysicalNoDataValue(-99999)
     product_unwrapped.getBand(band_unw[5]).setNoDataValueUsed(True)
-    coh_tc = terrain_correction(product_unwrapped, band=band_unw[4], projected=proj, pixel_size=pixel_size)
+    coh_tc = terrain_correction(product_unwrapped, band=band_unw[4],
+                                projected=proj, pixel_size=pixel_size)
     out_coh_tiff = os.path.join(out_dir, date_bundle + '_coherence.tif')
     write_TIFF_format(coh_tc, out_coh_tiff)
-    wrapped_tc = terrain_correction(product_unwrapped, band=band_unw[3], projected=proj, pixel_size=pixel_size)
+    wrapped_tc = terrain_correction(product_unwrapped, band=band_unw[3],
+                                    projected=proj, pixel_size=pixel_size)
     out_w_tiff = os.path.join(out_dir, date_bundle + '_wrapped_phase.tif')
     write_TIFF_format(wrapped_tc, out_w_tiff)
-    unwrapped_tc = terrain_correction(product_unwrapped, band=band_unw[5], projected=proj, pixel_size=pixel_size)
+    unwrapped_tc = terrain_correction(product_unwrapped, band=band_unw[5],
+                                      projected=proj, pixel_size=pixel_size)
     out_unw_tiff = os.path.join(out_dir, date_bundle + '_unwrapped_phase.tif')
     write_TIFF_format(unwrapped_tc, out_unw_tiff)
     print("Pipeline [P4] complete")
@@ -656,9 +712,16 @@ run_P1(
 
 run_P2(
     out_dir=output_dir,
+    ifg_squarepixel=args.ifg_squarepixel,
+    ifg_cohwin_rg=args.ifg_cohwin_rg,
+    ifg_cohwin_az=args.ifg_cohwin_az,
     multilooking=args.multilook_toggle,
     ml_rangelooks=args.multilook_range,
     goldsteinfiltering=args.goldstein_toggle,
+    gpf_fftsize=args.gpf_fftsize,
+    gpf_win=args.gpf_win,
+    gpf_cohmask=args.gpf_cohmask,
+    gpf_cohth=args.gpf_cohth,
     subsetting=args.subset_toggle,
     aoi=args.aoi_path,
     subset_buffer=args.aoi_buffer,
