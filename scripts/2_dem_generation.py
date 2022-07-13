@@ -448,6 +448,7 @@ def snaphu_export(product, snaphu_exp_folder, tiles, cost_mode, tile_overlap_row
 # Unwrapping code adapted from:
 # https://forum.step.esa.int/t/snaphu-read-error-due-to-non-ascii-unreadable-file/14374/4
 def snaphu_unwrapping(snaphu_exp_folder):
+    print('Unwrapping...')
     infile = os.path.join(snaphu_exp_folder, "snaphu.conf")
     with open(str(infile)) as lines:
         line = lines.readlines()[6]
@@ -457,7 +458,10 @@ def snaphu_unwrapping(snaphu_exp_folder):
     process = subprocess.Popen(snaphu_args, cwd=str(snaphu_exp_folder))
     process.communicate()
     process.wait()
-    print('Unwrapping...')
+
+    unw_img_file = glob.glob(os.path.join(output_dir, "out_P3_snaphu", "/UnwPhase*.img"))
+    if not unw_img_file:
+        raise ValueError("Snaphu unwrapping failed. Pipeline [P3] incomplete.")
 
     unwrapped_list = glob.glob(str(snaphu_exp_folder) + "/UnwPhase*.hdr")
     unwrapped_hdr = str(unwrapped_list[0])
@@ -647,6 +651,9 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
         # takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
         product = read(in_filename + ".dim")  # reads .dim
+        bands = list(product.getBandNames())
+        product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
+        product.getBand(bands[3]).setNoDataValueUsed(True)
     else:
         # takes result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2')
@@ -659,9 +666,6 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
 
 
 def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
-    unw_file = glob.glob(os.path.join(output_dir, "out_P3_snaphu", "UnwPhase*.img"))
-    if not unw_file:
-        raise ValueError("Snaphu unwrapping failed. Pipeline [P3] incomplete.")
     if subset:
         #  takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
@@ -670,6 +674,7 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
         # takes result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2')
         product = read(in_filename + ".dim")  # reads .dim
+
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     unwrapped_fn = os.path.join(out_dir_snaphu, 'unwrapped')
     unwrapped = read(unwrapped_fn + ".dim")
@@ -708,28 +713,28 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
 
 
 # Run the workflow
-run_P1(
-    file1=file_path_1, file2=file_path_2,
-    aoi=args.aoi_path, polarization=args.polarization,
-    dem=args.dem, out_dir=output_dir
-)
-
-run_P2(
-    out_dir=output_dir,
-    ifg_squarepixel=args.ifg_squarepixel,
-    ifg_cohwin_rg=args.ifg_cohwin_rg,
-    ifg_cohwin_az=args.ifg_cohwin_az,
-    multilooking=args.multilook_toggle,
-    ml_rangelooks=args.multilook_range,
-    goldsteinfiltering=args.goldstein_toggle,
-    gpf_fftsize=args.gpf_fftsize,
-    gpf_win=args.gpf_win,
-    gpf_cohmask=args.gpf_cohmask,
-    gpf_cohth=args.gpf_cohth,
-    subsetting=args.subset_toggle,
-    aoi=args.aoi_path,
-    subset_buffer=args.aoi_buffer,
-)
+# run_P1(
+#     file1=file_path_1, file2=file_path_2,
+#     aoi=args.aoi_path, polarization=args.polarization,
+#     dem=args.dem, out_dir=output_dir
+# )
+#
+# run_P2(
+#     out_dir=output_dir,
+#     ifg_squarepixel=args.ifg_squarepixel,
+#     ifg_cohwin_rg=args.ifg_cohwin_rg,
+#     ifg_cohwin_az=args.ifg_cohwin_az,
+#     multilooking=args.multilook_toggle,
+#     ml_rangelooks=args.multilook_range,
+#     goldsteinfiltering=args.goldstein_toggle,
+#     gpf_fftsize=args.gpf_fftsize,
+#     gpf_win=args.gpf_win,
+#     gpf_cohmask=args.gpf_cohmask,
+#     gpf_cohth=args.gpf_cohth,
+#     subsetting=args.subset_toggle,
+#     aoi=args.aoi_path,
+#     subset_buffer=args.aoi_buffer,
+# )
 
 run_P3(
     out_dir=output_dir,
