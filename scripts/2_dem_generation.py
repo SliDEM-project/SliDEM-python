@@ -652,12 +652,13 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
                   tile_overlap_row, tile_overlap_col)
     snaphu_unwrapping(out_dir_snaphu)
-    # TODO: if unwrapping fails (no .img file is generated),
-    #  pass on the error from snaphu and don't go on with the script
     print("Pipeline [P3] complete")
 
 
 def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
+    unw_file = glob.glob(os.path.join(output_dir, "out_P3_snaphu", "UnwPhase*.img"))
+    if not unw_file:
+        raise ValueError("Snaphu unwrapping failed. Pipeline [P3] incomplete.")
     if subset:
         #  takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
