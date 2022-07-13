@@ -209,7 +209,10 @@ args = parser.parse_args()
 os.chdir('home/')
 
 # Read in image pairs
-products = pd.read_csv(os.path.join(args.download_dir, args.query_result))
+products = pd.read_csv(
+    os.path.join(args.download_dir, args.query_result),
+    sep=None, engine='python'
+)
 productsIn = products[products['Download']]
 
 # "before" image .zip
