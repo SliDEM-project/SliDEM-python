@@ -276,7 +276,7 @@ def read_aoi(aoi, buffer):
 # [P1] Function to get subswaths and bursts
 def get_swath_burst(filename, aoi, polar=args.polarization):
     print('Extracting subswath and bursts for AOI...')
-    aoi_geom = read_aoi(aoi, buffer=0)
+    aoi_geom = read_aoi(aoi, buffer=args.aoi_buffer)
 
     # Apply Top Split Analyzer to S1 file with stsa
     # Initialize object
@@ -358,6 +358,21 @@ def enhanced_spectral_diversity(product):
     return GPF.createProduct("Enhanced-Spectral-Diversity", parameters, product)
 
 
+# [P1] Function for TOPSAR deburst
+def topsar_deburst(sources):
+    print('Running TOPSAR deburst...')
+    parameters.put("Polarisations", args.polarization)
+    output = GPF.createProduct("TOPSAR-Deburst", parameters, sources)
+    return output
+
+
+# [P1] Function for TOPSAR deburst
+def topsar_merge(source):
+    print('Running TOPSAR merge...')
+    output = GPF.createProduct("TOPSAR-Merge", source)
+    return output
+
+
 # [P2] Function to calculate the interferogram
 def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
     print('Creating interferogram...')
@@ -371,14 +386,6 @@ def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
     parameters.put("Coherence Range Window Size", ifg_cohwin_rg)
     parameters.put("Coherence Azimuth Window Size", ifg_cohwin_az)
     return GPF.createProduct("Interferogram", parameters, product)
-
-
-# [P2] Function for TOPSAR deburst
-def topsar_deburst(source):
-    print('Running TOPSAR deburst...')
-    parameters.put("Polarisations", args.polarization)
-    output = GPF.createProduct("TOPSAR-Deburst", parameters, source)
-    return output
 
 
 # [P2] Function for topophase removal (optional)
@@ -459,7 +466,7 @@ def snaphu_unwrapping(snaphu_exp_folder):
     process.communicate()
     process.wait()
 
-    unw_img_file = glob.glob(os.path.join(output_dir, "out_P3_snaphu", "/UnwPhase*.img"))
+    unw_img_file = glob.glob(os.path.join(output_dir, str("out_P3_snaphu" + "/UnwPhase*.img")))
     if not unw_img_file:
         raise ValueError("Snaphu unwrapping failed. Pipeline [P3] incomplete.")
 
@@ -506,6 +513,21 @@ def terrain_correction(source, band=None, projected=True, pixel_size=30.0):
     return output
 
 
+# [P4] Filter pixels by threshold
+# def filter_product_threshold(stack, th):
+
+# result.getBand('B2')
+# BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+# targetBand1 = BandDescriptor()
+# targetBand1.name = 'B2'
+# targetBand1.type = 'int8'
+# **targetBand1.expression = 'if B2 <' + str(thres)+ ' then 1 else 0'**
+# targetBands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+# targetBands[0] = targetBand1
+# parameters = HashMap()
+# parameters.put('targetBands', targetBands)
+# result_bof = GPF.createProduct('BandMaths', parameters, result)
+
 # Pipe functions
 def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     # Write user settings to log file
@@ -520,7 +542,6 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
         'Pass: ' + passf + '\n' +
         'Orbit: ' + str(orbit) + '\n' +
         'DEM for back-geocoding: ' + dem + '\n'
-
     )
     file.close
 
@@ -528,8 +549,8 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     stsa_1 = get_swath_burst(file1, aoi, polar=polarization)
     stsa_2 = get_swath_burst(file2, aoi, polar=polarization)
     # Get subswath that intersects AOI
-    swath_1 = stsa_1['subswath']
-    swath_2 = stsa_2['subswath']
+    swath_1 = list(set(stsa_1['subswath']))
+    swath_2 = list(set(stsa_2['subswath']))
     # TODO: Multiple subswaths are not supported but currently there is no way around it,
     #  since the selection happens internally. The pipeline will exit with an Error, see below.
     #  Options: ask user to input a different AOI?
@@ -607,7 +628,17 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 2:\n' +
-        'Multi-looking range: ' + str(ml_rangelooks) + '\n'
+        'Interferogram settings:'
+        '- Square pixel: ' + str(ifg_squarepixel) + '\n' +
+        '- Coherence range window size: ' + str(ifg_cohwin_rg) + '\n' +
+        '- Coherence azimuth window size: ' + str(ifg_cohwin_az) + '\n' +
+        'Multi-looking applied: ' + str(multilooking) + '\n' +
+        '- Multi-looking range: ' + str(ml_rangelooks) + '\n' +
+        'Goldstein filtering applied: ' + str(goldsteinfiltering) + '\n' +
+        '- FFT size: ' + str(gpf_fftsize) + '\n' +
+        '- Window size: ' + str(gpf_win) + '\n' +
+        '- Coherence mask applied: ' + str(gpf_cohmask) + '\n' +
+        '- Coherence mask threshold: ' + str(gpf_cohth) + '\n'
     )
     file.close
 
@@ -651,13 +682,20 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
         # takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
         product = read(in_filename + ".dim")  # reads .dim
-        bands = list(product.getBandNames())
-        product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
-        product.getBand(bands[3]).setNoDataValueUsed(True)
+        # bands = list(product.getBandNames())
+        # product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
+        # product.getBand(bands[3]).setNoDataValueUsed(True)
+        # product.getBand(bands[4]).setGeophysicalNoDataValue(-99999)
+        # product.getBand(bands[4]).setNoDataValueUsed(True)
     else:
         # takes result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2')
         product = read(in_filename + ".dim")  # reads .dim
+        # bands = list(product.getBandNames())
+        # product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
+        # product.getBand(bands[3]).setNoDataValueUsed(True)
+        # product.getBand(bands[4]).setGeophysicalNoDataValue(-99999)
+        # product.getBand(bands[4]).setNoDataValueUsed(True)
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
                   tile_overlap_row, tile_overlap_col)
@@ -709,32 +747,34 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
                                       projected=proj, pixel_size=pixel_size)
     out_unw_tiff = os.path.join(out_dir, date_bundle + '_unwrapped_phase.tif')
     write_TIFF_format(unwrapped_tc, out_unw_tiff)
+    # TODO: save elevation filtered by coherence threshold
+    #   Probably using GDAL or rasterio
     print("Pipeline [P4] complete")
 
 
 # Run the workflow
-# run_P1(
-#     file1=file_path_1, file2=file_path_2,
-#     aoi=args.aoi_path, polarization=args.polarization,
-#     dem=args.dem, out_dir=output_dir
-# )
-#
-# run_P2(
-#     out_dir=output_dir,
-#     ifg_squarepixel=args.ifg_squarepixel,
-#     ifg_cohwin_rg=args.ifg_cohwin_rg,
-#     ifg_cohwin_az=args.ifg_cohwin_az,
-#     multilooking=args.multilook_toggle,
-#     ml_rangelooks=args.multilook_range,
-#     goldsteinfiltering=args.goldstein_toggle,
-#     gpf_fftsize=args.gpf_fftsize,
-#     gpf_win=args.gpf_win,
-#     gpf_cohmask=args.gpf_cohmask,
-#     gpf_cohth=args.gpf_cohth,
-#     subsetting=args.subset_toggle,
-#     aoi=args.aoi_path,
-#     subset_buffer=args.aoi_buffer,
-# )
+run_P1(
+    file1=file_path_1, file2=file_path_2,
+    aoi=args.aoi_path, polarization=args.polarization,
+    dem=args.dem, out_dir=output_dir
+)
+
+run_P2(
+    out_dir=output_dir,
+    ifg_squarepixel=args.ifg_squarepixel,
+    ifg_cohwin_rg=args.ifg_cohwin_rg,
+    ifg_cohwin_az=args.ifg_cohwin_az,
+    multilooking=args.multilook_toggle,
+    ml_rangelooks=args.multilook_range,
+    goldsteinfiltering=args.goldstein_toggle,
+    gpf_fftsize=args.gpf_fftsize,
+    gpf_win=args.gpf_win,
+    gpf_cohmask=args.gpf_cohmask,
+    gpf_cohth=args.gpf_cohth,
+    subsetting=args.subset_toggle,
+    aoi=args.aoi_path,
+    subset_buffer=args.aoi_buffer,
+)
 
 run_P3(
     out_dir=output_dir,
