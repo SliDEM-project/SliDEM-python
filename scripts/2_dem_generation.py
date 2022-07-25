@@ -4,6 +4,7 @@
 import argparse
 import glob
 import json
+import numpy as np
 import os
 import pandas as pd
 from shapely.geometry import shape, GeometryCollection
@@ -13,7 +14,7 @@ import subprocess
 
 # Arguments
 parser = argparse.ArgumentParser(
-  description='''Generate DEMs based on Sentinel-1 image pairs. 
+    description='''Generate DEMs based on Sentinel-1 image pairs. 
 This module will go through four processing pipelines, which
 output different intermediate steps within the workflow,
 including interferogram and coherence layers.
@@ -24,39 +25,39 @@ The `query_result` file from the previous steps, should have been edited
 by the user to change the Download column to TRUE for those pair of scenes
 that seem suitable for processing, since this script loops over this file. 
 ''',
-  epilog='''
+    epilog='''
 Versions: 
   v0.1 - 06/2022 - Generate DEMs from S1
 Authors:
   Lorena Abad - University of Salzburg - lorena.abad@plus.ac.at''',
-  formatter_class=argparse.RawTextHelpFormatter
+    formatter_class=argparse.RawTextHelpFormatter
 )
 parser.add_argument(
-  '--download_dir',
-  type=str,
-  default='data',
-  help='''relative path (refers to mounted volume) to the directory
+    '--download_dir',
+    type=str,
+    default='data',
+    help='''relative path (refers to mounted volume) to the directory
   where S1 scenes were downloaded'''
 )
 parser.add_argument(
-  '--output_dir',
-  type=str,
-  default='data',
-  help='''relative path (refers to mounted volume) to the directory where'
+    '--output_dir',
+    type=str,
+    default='data',
+    help='''relative path (refers to mounted volume) to the directory where'
   results should be written into'''
 )
 parser.add_argument(
-  '--query_result',
-  type=str,
-  help='''path to the CSV file with query results from 0_query_s1.py. 
+    '--query_result',
+    type=str,
+    help='''path to the CSV file with query results from 0_query_s1.py. 
   Should be located in the specified download_dir, and should have been 
   edited to set Download=True where relevant.'''
 )
 parser.add_argument(
-  '--pair_index',
-  type=int,
-  default=0,
-  help='''refers to the query_result CSV file, where the rows with Download=True
+    '--pair_index',
+    type=int,
+    default=0,
+    help='''refers to the query_result CSV file, where the rows with Download=True
   are filtered out to get a list of the image pairs to process. 
   Set the index to indicate which row to process next.
   Defaults to the first pair (pair_index=0)'''
@@ -216,12 +217,14 @@ products = pd.read_csv(
 productsIn = products[products['Download']]
 
 # "before" image .zip
-if pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']) < pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']):
+if pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']) < pd.to_datetime(
+        productsIn.iloc[args.pair_index]['MatchDate']):
     file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
 else:
     file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
 # "after" image .zip
-if pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']) > pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']):
+if pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']) > pd.to_datetime(
+        productsIn.iloc[args.pair_index]['ReferenceDate']):
     file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
 else:
     file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
@@ -241,10 +244,10 @@ ref_date_str = pd.to_datetime(
     dayfirst=True
 ).strftime('%Y%m%d')
 mat_date_str = pd.to_datetime(
-        productsIn.iloc[args.pair_index]['MatchDate'],
-        yearfirst=False,
-        dayfirst=True
-    ).strftime('%Y%m%d')
+    productsIn.iloc[args.pair_index]['MatchDate'],
+    yearfirst=False,
+    dayfirst=True
+).strftime('%Y%m%d')
 date_bundle = ref_date_str + '_' + mat_date_str
 output_dir = os.path.join(args.output_dir, 'out_' + date_bundle)
 if not os.path.exists(output_dir):
@@ -255,6 +258,7 @@ ref_date = productsIn.iloc[args.pair_index]['ReferenceDate']
 mat_date = productsIn.iloc[args.pair_index]['MatchDate']
 passf = productsIn.iloc[args.pair_index]['Pass']
 orbit = productsIn.iloc[args.pair_index]['Orbit']
+
 
 # Functions:
 # From this section I define a set of functions that are called
@@ -274,7 +278,7 @@ def read_aoi(aoi, buffer):
 
 
 # [P1] Function to get subswaths and bursts
-def get_swath_burst(filename, aoi, polar=args.polarization):
+def get_swath_burst(filename, aoi, polar=args.polarization, product_idx=1):
     print('Extracting subswath and bursts for AOI...')
     aoi_geom = read_aoi(aoi, buffer=args.aoi_buffer)
 
@@ -292,13 +296,23 @@ def get_swath_burst(filename, aoi, polar=args.polarization):
     img_df = img.df
 
     # Intersect geodataframe with aoi
-    img_df = img_df[img_df.intersects(aoi_geom)]
+    img_df = img_df[img_df.intersects(aoi_geom)].reset_index()
 
-    # Return intersecting subswaths and bursts as a dictionary
-    return dict(
-        subswath=img_df['subswath'].tolist(),
-        burst=img_df['burst'].tolist()
-    )
+    # Return intersecting subswaths and bursts
+    df = img_df[['subswath', 'burst']]
+    df['burst_idx'] = df.groupby('subswath').cumcount()
+    if product_idx == 1:
+        df['burst_idx'] = np.where(df['burst_idx'] == 0, "firstBurstIndex_1",
+                                   np.where(df['burst_idx'] == 1, "lastBurstIndex_1", "ignore"))
+        df = df.pivot(index='subswath', columns='burst_idx', values='burst') \
+            .rename_axis(columns=None).reset_index()
+        return df
+    else:
+        df['burst_idx'] = np.where(df['burst_idx'] == 0, "firstBurstIndex_2",
+                                   np.where(df['burst_idx'] == 1, "lastBurstIndex_2", "ignore"))
+        df = df.pivot(index='subswath', columns='burst_idx', values='burst') \
+            .rename_axis(columns=None).reset_index()
+        return df
 
 
 # [P1|P2|P3|P4] Function to read the .zip file into SNAP
@@ -318,7 +332,7 @@ def write_BEAM_DIMAP_format(product, filename):
     ProductIO.writeProduct(product, filename + '.dim', 'BEAM-DIMAP')
 
 
-# [P1] Function to apply TOPSAR split with SNAP
+# [P2] Function to apply TOPSAR split with SNAP
 def topsar_split(product, IW, firstBurstIndex, lastBurstIndex, polar=args.polarization):
     print('Applying TOPSAR Split...')
     parameters.put('subswath', IW)
@@ -329,7 +343,7 @@ def topsar_split(product, IW, firstBurstIndex, lastBurstIndex, polar=args.polari
     return output
 
 
-# [P1] Function to apply Orbit file with SNAP
+# [P2] Function to apply Orbit file with SNAP
 def apply_orbit_file(product):
     print('Applying orbit file...')
     parameters.put("Orbit State Vectors", "Sentinel Precise (Auto Download)")
@@ -338,7 +352,7 @@ def apply_orbit_file(product):
     return GPF.createProduct("Apply-Orbit-File", parameters, product)
 
 
-# [P1] Function to do back geocoding with SNAP
+# [P2] Function to do back geocoding with SNAP
 def back_geocoding(product, dem):
     print('Back geocoding...')
     parameters.put("demName", dem)
@@ -350,7 +364,7 @@ def back_geocoding(product, dem):
     return GPF.createProduct("Back-Geocoding", parameters, product)
 
 
-# [P1] Function to apply Enhanced Spectral Diversity with SNAP
+# [P2] Function to apply Enhanced Spectral Diversity with SNAP
 def enhanced_spectral_diversity(product):
     print('Applying Enhanced Spectral Diversity...')
     # called with defaults
@@ -358,7 +372,7 @@ def enhanced_spectral_diversity(product):
     return GPF.createProduct("Enhanced-Spectral-Diversity", parameters, product)
 
 
-# [P1] Function for TOPSAR deburst
+# [P2] Function for TOPSAR deburst with SNAP
 def topsar_deburst(sources):
     print('Running TOPSAR deburst...')
     parameters.put("Polarisations", args.polarization)
@@ -366,14 +380,7 @@ def topsar_deburst(sources):
     return output
 
 
-# [P1] Function for TOPSAR deburst
-def topsar_merge(source):
-    print('Running TOPSAR merge...')
-    output = GPF.createProduct("TOPSAR-Merge", source)
-    return output
-
-
-# [P2] Function to calculate the interferogram
+# [P2] Function to calculate the interferogram with SNAP
 def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
     print('Creating interferogram...')
     parameters.put("Subtract flat-earth phase", True)
@@ -388,7 +395,14 @@ def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
     return GPF.createProduct("Interferogram", parameters, product)
 
 
-# [P2] Function for topophase removal (optional)
+# [P2] Function for TOPSAR merge with SNAP
+def topsar_merge(sources):
+    print('Running TOPSAR merge...')
+    output = GPF.createProduct("TOPSAR-Merge", sources)
+    return output
+
+
+# [P2] Function for topophase removal (optional) with SNAP
 def topophase_removal(product, dem):
     parameters.put("Orbit Interpolation Degree", 3)
     parameters.put("demName", dem)
@@ -398,7 +412,7 @@ def topophase_removal(product, dem):
     return GPF.createProduct("TopoPhaseRemoval", parameters, product)
 
 
-# [P2] Function for multilooking (optional)
+# [P2] Function for multilooking (optional) with SNAP
 # Multi-looking is used to reduce resolution.
 # ML_nRgLooks stands for number of range looks
 # grSquarePixel is set to True to default to a square pixel,
@@ -407,12 +421,12 @@ def topophase_removal(product, dem):
 def multilook(product, ML_nRgLooks):
     print('Multi-looking...')
     parameters.put('grSquarePixel', True)
-    parameters.put("nRgLooks", ML_nRgLooks) # half of range looks on metadata
+    parameters.put("nRgLooks", ML_nRgLooks)  # half of range looks on metadata
     output = GPF.createProduct("Multilook", parameters, product)
     return output
 
 
-# [P2] Function to apply Goldstein phase filtering (optional)
+# [P2] Function to apply Goldstein phase filtering (optional) with SNAP
 def goldstein_phase_filter(product, gpf_fftsize, gpf_win,
                            gpf_cohmask, gpf_cohth):
     print('Applying Goldstein phase filtering...')
@@ -424,7 +438,7 @@ def goldstein_phase_filter(product, gpf_fftsize, gpf_win,
     return GPF.createProduct("GoldsteinPhaseFiltering", parameters, product)
 
 
-# [P2] Function to create a subset
+# [P2] Function to create a subset with SNAP
 def subset(source, aoi, buffer):
     print('Subsetting...')
     wkt = read_aoi(aoi, buffer).wkt
@@ -529,7 +543,16 @@ def terrain_correction(source, band=None, projected=True, pixel_size=30.0):
 # result_bof = GPF.createProduct('BandMaths', parameters, result)
 
 # Pipe functions
-def run_P1(file1, file2, aoi, polarization, dem, out_dir):
+# Pipeline 1 [P1]: extract subswaths, bursts and run SNAP workflow
+def run_P1(out_dir, file1, file2, polarization, aoi=None,
+           topophaseremove=False, dem=None,
+           ifg_squarepixel=None, ifg_cohwin_rg=None,
+           ifg_cohwin_az=None,
+           multilooking=None, ml_rangelooks=None,
+           goldsteinfiltering=None,
+           gpf_fftsize=None, gpf_win=None,
+           gpf_cohmask=None, gpf_cohth=None,
+           subsetting=None, subset_buffer=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'w')
     file.write(
@@ -546,37 +569,17 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     file.close
 
     # Apply stsa workflow
-    stsa_1 = get_swath_burst(file1, aoi, polar=polarization)
-    stsa_2 = get_swath_burst(file2, aoi, polar=polarization)
-    # Get subswath that intersects AOI
-    swath_1 = list(set(stsa_1['subswath']))
-    swath_2 = list(set(stsa_2['subswath']))
-    # TODO: Multiple subswaths are not supported but currently there is no way around it,
-    #  since the selection happens internally. The pipeline will exit with an Error, see below.
-    #  Options: ask user to input a different AOI?
-    if not len(swath_1) == len(swath_2) == 1:
-        raise ValueError("Multiple subswaths are not supported yet.")
-    # TODO: Add documentation here, subswaths should be the same because each of them is
-    #   processed separately.
-    if not swath_1 == swath_2:
-        raise ValueError("Subswaths intersecting the AOI do not match.")
-    IW = swath_1[0]
-    # Get burst indices
-    burst_1 = stsa_1['burst']
-    burst_2 = stsa_2['burst']
-    firstBurstIndex_1 = min(burst_1)
-    lastBurstIndex_1 = max(burst_1)
-    firstBurstIndex_2 = min(burst_2)
-    lastBurstIndex_2 = max(burst_2)
+    stsa_1 = get_swath_burst(file1, aoi, polar=polarization, product_idx=1)
+    stsa_2 = get_swath_burst(file2, aoi, polar=polarization, product_idx=2)
 
-    # Write sub-swath and burst to log file
-    file = open(os.path.join(out_dir, 'log.txt'), 'a')
-    file.write(
-        '\nAUTOMATICALLY EXTRACTED PARAMETERS IN PIPELINE 1:\n'
-        'Subswath: ' + IW + '\n' +
-        'Bursts 1: ' + ','.join([str(item) for item in burst_1]) + '\n' +
-        'Bursts 2: ' + ','.join([str(item) for item in burst_2]) + '\n')
-    file.close
+    if not list(set(stsa_1['subswath'])) == list(set(stsa_2['subswath'])):
+        # subswaths should be the same because each of them is
+        # processed separately.
+        raise ValueError("Subswaths intersecting the AOI do not match.")
+    else:
+        stsa_df = stsa_1.join(stsa_2.set_index('subswath'), on='subswath')
+        stsa_df.lastBurstIndex_1.fillna(stsa_df.firstBurstIndex_1, inplace=True)
+        stsa_df.lastBurstIndex_2.fillna(stsa_df.firstBurstIndex_2, inplace=True)
 
     # Compute InSAR stack overview
     product_1 = read(file1)
@@ -586,7 +589,8 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     stack = jpy.get_type('org.esa.s1tbx.insar.gpf.coregistration.CreateStackOp')
     stack.getBaselines([product_1, product_2], product_1)
     # Now there is a new piece of metadata in product one called 'Baselines'
-    baseline_root_metadata = product_1.getMetadataRoot().getElement('Abstracted_Metadata').getElement('Baselines')
+    baseline_root_metadata = product_1.getMetadataRoot(). \
+        getElement('Abstracted_Metadata').getElement('Baselines')
     # Write to log all the baselines between all master/slave configurations
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write('\nCOMPUTED STACKS IN PIPELINE 1:\n')
@@ -602,28 +606,6 @@ def run_P1(file1, file2, aoi, polarization, dem, out_dir):
     file.close
 
     # Proceed to SNAP workflow
-    product_TOPSAR_1 = topsar_split(product_1, IW,
-                                    firstBurstIndex_1, lastBurstIndex_1)
-    product_TOPSAR_2 = topsar_split(product_2,
-                                    IW, firstBurstIndex_2, lastBurstIndex_2)
-    product_orbitFile_1 = apply_orbit_file(product_TOPSAR_1)
-    product_orbitFile_2 = apply_orbit_file(product_TOPSAR_2)
-    product = back_geocoding([product_orbitFile_1, product_orbitFile_2], dem)
-    if len(burst_1) > 1 or len(burst_2) > 1:
-        product = enhanced_spectral_diversity(product)
-    out_filename = os.path.join(out_dir, 'out_P1')
-    write_BEAM_DIMAP_format(product, out_filename)
-    print("Pipeline [P1] complete")
-
-
-def run_P2(out_dir, topophaseremove=False, dem=None,
-           ifg_squarepixel=None, ifg_cohwin_rg=None,
-           ifg_cohwin_az=None,
-           multilooking=None, ml_rangelooks=None,
-           goldsteinfiltering=None,
-           gpf_fftsize=None, gpf_win=None,
-           gpf_cohmask=None, gpf_cohth=None,
-           subsetting=None, aoi=None, subset_buffer=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
@@ -642,12 +624,59 @@ def run_P2(out_dir, topophaseremove=False, dem=None,
     )
     file.close
 
-    # takes result from previous pipeline
-    in_filename = os.path.join(out_dir, 'out_P1')
-    product = read(in_filename + ".dim")  # reads .dim
-    product = interferogram(product,
-                            ifg_squarepixel, ifg_cohwin_rg, ifg_cohwin_az)
-    product = topsar_deburst(product)
+    def snap_single_iw(iw,
+                       firstBurstIndex_1, firstBurstIndex_2,
+                       lastBurstIndex_1, lastBurstIndex_2):
+        # Write sub-swath and burst to log file
+        file = open(os.path.join(out_dir, 'log.txt'), 'a')
+        file.write(
+            '\nAUTOMATICALLY EXTRACTED PARAMETERS IN PIPELINE 1:\n'
+            'Subswath: ' + iw + '\n' +
+            'Bursts 1: ' + str(firstBurstIndex_1) + ',' + str(lastBurstIndex_1) + '\n' +
+            'Bursts 2: ' + str(firstBurstIndex_2) + ',' + str(lastBurstIndex_2) + '\n')
+        file.close
+
+        product_TOPSAR_1 = topsar_split(product_1, iw,
+                                        firstBurstIndex_1, lastBurstIndex_1)
+        product_TOPSAR_2 = topsar_split(product_2, iw,
+                                        firstBurstIndex_2, lastBurstIndex_2)
+        product_orbitFile_1 = apply_orbit_file(product_TOPSAR_1)
+        product_orbitFile_2 = apply_orbit_file(product_TOPSAR_2)
+        product = back_geocoding([product_orbitFile_1, product_orbitFile_2], dem)
+        if lastBurstIndex_1 - firstBurstIndex_1 > 1 or \
+                lastBurstIndex_2 - firstBurstIndex_2 > 1:
+            product = enhanced_spectral_diversity(product)
+        out_filename = os.path.join(out_dir, 'out_P1_' + iw)
+        write_BEAM_DIMAP_format(product, out_filename)
+
+        # takes result from previous pipeline
+        product = interferogram(product,
+                                ifg_squarepixel, ifg_cohwin_rg, ifg_cohwin_az)
+        product = topsar_deburst(product)
+        return product
+
+    if len(stsa_df) > 1:
+        products = []
+        for index, row in stsa_df.iterrows():
+            product = snap_single_iw(
+                iw=row['subswath'],
+                firstBurstIndex_1=row['firstBurstIndex_1'],
+                firstBurstIndex_2=row['firstBurstIndex_2'],
+                lastBurstIndex_1=row['lastBurstIndex_1'],
+                lastBurstIndex_2=row['lastBurstIndex_2']
+            )
+            products.append(product)
+
+        product = topsar_merge(products)
+    else:
+        product = snap_single_iw(
+            iw=stsa_df['subswath'].item(),
+            firstBurstIndex_1=stsa_df['firstBurstIndex_1'].item(),
+            firstBurstIndex_2=stsa_df['firstBurstIndex_2'].item(),
+            lastBurstIndex_1=stsa_df['lastBurstIndex_1'].item(),
+            lastBurstIndex_2=stsa_df['lastBurstIndex_2'].item()
+        )
+
     if topophaseremove:
         product = topophase_removal(product, dem)
     if multilooking:
@@ -672,9 +701,9 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-        'Tiles overlap: row ' + str(tile_overlap_row) +
+                                 'Tiles overlap: row ' + str(tile_overlap_row) +
         ', col ' + str(tile_overlap_row) + '\n'
-        'Cost mode: ' + cost_mode + '\n'
+                                           'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
@@ -724,6 +753,8 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
                                       projected=proj, pixel_size=pixel_size)
     out_filename = os.path.join(out_dir, 'out_P4')
     write_BEAM_DIMAP_format(elevation_tc, out_filename)
+    ## To save all products in one file check:
+    # https://forum.step.esa.int/t/can-i-merge-bands-from-separate-files-into-a-single-file/8467/2?u=loreabad6
     # Save elevation to TIFF
     out_elev_tiff = os.path.join(out_dir, date_bundle + '_elevation.tif')
     write_TIFF_format(elevation_tc, out_elev_tiff)
@@ -756,11 +787,7 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
 run_P1(
     file1=file_path_1, file2=file_path_2,
     aoi=args.aoi_path, polarization=args.polarization,
-    dem=args.dem, out_dir=output_dir
-)
-
-run_P2(
-    out_dir=output_dir,
+    dem=args.dem, out_dir=output_dir,
     ifg_squarepixel=args.ifg_squarepixel,
     ifg_cohwin_rg=args.ifg_cohwin_rg,
     ifg_cohwin_az=args.ifg_cohwin_az,
@@ -772,8 +799,7 @@ run_P2(
     gpf_cohmask=args.gpf_cohmask,
     gpf_cohth=args.gpf_cohth,
     subsetting=args.subset_toggle,
-    aoi=args.aoi_path,
-    subset_buffer=args.aoi_buffer,
+    subset_buffer=args.aoi_buffer
 )
 
 run_P3(
