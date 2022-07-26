@@ -409,7 +409,8 @@ def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
 # [P2] Function for TOPSAR merge with SNAP
 def topsar_merge(sources):
     print('Running TOPSAR merge...')
-    output = GPF.createProduct("TOPSAR-Merge", sources)
+    parameters.put("selectedPolarisations", args.polarization)
+    output = GPF.createProduct("TOPSAR-Merge", parameters, sources)
     return output
 
 
@@ -701,7 +702,6 @@ def run_P1(out_dir, file1, file2, polarization, aoi=None,
                 lastBurstIndex_2=row['lastBurstIndex_2']
             )
             products.append(product)
-
         product = topsar_merge(products)
     else:
         product = snap_single_iw(
