@@ -104,12 +104,6 @@ parser.add_argument(
     product?, defaults to True'''
 )
 parser.add_argument(
-    '--pixel_size',
-    type=float,
-    default=30.0,
-    help='''When applying terrain correction, what pixel size to use, defaults to 30'''
-)
-parser.add_argument(
     '--ifg_squarepixel',
     type=bool,
     default=True,
@@ -203,6 +197,18 @@ parser.add_argument(
     help='''If more than one tile is set, what should the overlap
     between tiles be for the columns. 
     Defaults to 200'''
+)
+parser.add_argument(
+    '--pixel_size',
+    type=float,
+    default=30.0,
+    help='''When applying terrain correction, what pixel size to use, defaults to 30'''
+)
+parser.add_argument(
+    '--coherence_threshold',
+    type=float,
+    default=0.15,
+    help='''Minimum coherence value to export valid elevation pixels, defaults to 0.15'''
 )
 args = parser.parse_args()
 
@@ -306,13 +312,18 @@ def get_swath_burst(filename, aoi, polar=args.polarization, product_idx=1):
                                    np.where(df['burst_idx'] == 1, "lastBurstIndex_1", "ignore"))
         df = df.pivot(index='subswath', columns='burst_idx', values='burst') \
             .rename_axis(columns=None).reset_index()
+        if 'lastBurstIndex_1' not in df.columns:
+            df['lastBurstIndex_1'] = np.nan
         return df
     else:
         df['burst_idx'] = np.where(df['burst_idx'] == 0, "firstBurstIndex_2",
                                    np.where(df['burst_idx'] == 1, "lastBurstIndex_2", "ignore"))
         df = df.pivot(index='subswath', columns='burst_idx', values='burst') \
             .rename_axis(columns=None).reset_index()
+        if 'lastBurstIndex_2' not in df.columns:
+            df['lastBurstIndex_2'] = np.nan
         return df
+
 
 
 # [P1|P2|P3|P4] Function to read the .zip file into SNAP
@@ -511,7 +522,7 @@ def phase_to_elev(unwrapped_product, dem):
 
 
 # [P4] Function to perform terrain correction
-def terrain_correction(source, band=None, projected=True, pixel_size=30.0):
+def terrain_correction(source, band=None, projected=None, pixel_size=None):
     print('Terrain correction...')
     parameters.put('demName', args.dem)
     parameters.put('imgResamplingMethod', 'BILINEAR_INTERPOLATION')
@@ -527,20 +538,44 @@ def terrain_correction(source, band=None, projected=True, pixel_size=30.0):
     return output
 
 
-# [P4] Filter pixels by threshold
-# def filter_product_threshold(stack, th):
+# [P4] Function to combine two products
+def collocate(product1, product2):
+    print('Collocating two products...')
+    sourceProducts = HashMap()
+    sourceProducts.put('master', product1)
+    sourceProducts.put('slave', product2)
+    parameters.put('renameMasterComponents', False)
+    parameters.put('renameSlaveComponents', False)
+    output = GPF.createProduct("Collocate", parameters, sourceProducts)
+    return output
 
-# result.getBand('B2')
-# BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
-# targetBand1 = BandDescriptor()
-# targetBand1.name = 'B2'
-# targetBand1.type = 'int8'
-# **targetBand1.expression = 'if B2 <' + str(thres)+ ' then 1 else 0'**
-# targetBands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
-# targetBands[0] = targetBand1
-# parameters = HashMap()
-# parameters.put('targetBands', targetBands)
-# result_bof = GPF.createProduct('BandMaths', parameters, result)
+
+# [P4] Function to set no data value for several bands
+def set_no_data(product, bands, ndval):
+    for b in bands:
+        product.getBand(b).setGeophysicalNoDataValue(ndval)
+        product.getBand(b).setNoDataValueUsed(True)
+    return product
+
+
+# [P4] Filter elevation pixels by coherence threshold
+def filter_elevation(product, elev_band, coh_band, coh_th, nodata):
+    bandmath_expression = 'if ' + coh_band + ' > ' + str(coh_th) +\
+                          ' then ' + elev_band + ' else ' + str(nodata)
+    product.getBand(elev_band)
+    BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+    targetBand1 = BandDescriptor()
+    targetBand1.name = elev_band + '_filtered_cohth_' + str(coh_th)
+    targetBand1.type = 'float32'
+    targetBand1.expression = bandmath_expression
+    targetBands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+    targetBands[0] = targetBand1
+    parameters = HashMap()
+    parameters.put('targetBands', targetBands)
+    output = GPF.createProduct('BandMaths', parameters, product)
+    print(bandmath_expression)
+    return output
+
 
 # Pipe functions
 # Pipeline 1 [P1]: extract subswaths, bursts and run SNAP workflow
@@ -701,9 +736,9 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-                                 'Tiles overlap: row ' + str(tile_overlap_row) +
+        'Tiles overlap: row ' + str(tile_overlap_row) +
         ', col ' + str(tile_overlap_row) + '\n'
-                                           'Cost mode: ' + cost_mode + '\n'
+        'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
@@ -732,7 +767,16 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     print("Pipeline [P3] complete")
 
 
-def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
+def run_P4(out_dir, dem=None, subset=None, proj=None,
+           pixel_size=None, coherence_threshold=None):
+    # Write user settings to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write(
+        '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
+        'Pixel size: ' + str(pixel_size) + '\n'
+        'Coherence threshold: ' + str(coherence_threshold) + '\n'
+    )
+    file.close
     if subset:
         #  takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
@@ -747,39 +791,43 @@ def run_P4(out_dir, dem=None, subset=None, proj=None, pixel_size=None):
     unwrapped = read(unwrapped_fn + ".dim")
     product_unwrapped = snaphu_import(product, unwrapped)
     elevation = phase_to_elev(product_unwrapped, dem)
-    elevation.getBand('elevation').setGeophysicalNoDataValue(-99999)
-    elevation.getBand('elevation').setNoDataValueUsed(True)
-    elevation_tc = terrain_correction(elevation, band='elevation',
-                                      projected=proj, pixel_size=pixel_size)
-    out_filename = os.path.join(out_dir, 'out_P4')
-    write_BEAM_DIMAP_format(elevation_tc, out_filename)
-    ## To save all products in one file check:
-    # https://forum.step.esa.int/t/can-i-merge-bands-from-separate-files-into-a-single-file/8467/2?u=loreabad6
-    # Save elevation to TIFF
-    out_elev_tiff = os.path.join(out_dir, date_bundle + '_elevation.tif')
-    write_TIFF_format(elevation_tc, out_elev_tiff)
-    # Terrain correct coherence, wrapped and unwrapped phase and save to TIFF
-    band_unw = list(product_unwrapped.getBandNames())
-    product_unwrapped.getBand(band_unw[3]).setGeophysicalNoDataValue(-99999)
-    product_unwrapped.getBand(band_unw[3]).setNoDataValueUsed(True)
-    product_unwrapped.getBand(band_unw[4]).setGeophysicalNoDataValue(-99999)
-    product_unwrapped.getBand(band_unw[4]).setNoDataValueUsed(True)
-    product_unwrapped.getBand(band_unw[5]).setGeophysicalNoDataValue(-99999)
-    product_unwrapped.getBand(band_unw[5]).setNoDataValueUsed(True)
-    coh_tc = terrain_correction(product_unwrapped, band=band_unw[4],
+    # Combine elevation product with intensity, coherence, wrapped and unwrapped phase
+    product_comb = collocate(product_unwrapped, elevation)
+    bands_comb = list(product_comb.getBandNames())
+    nodataval = -99999
+    product_comb = set_no_data(product_comb, bands_comb[2:7], nodataval)
+    # Terrain correct
+    product_comb_tc = terrain_correction(product_comb, band=','.join(bands_comb[2:7]),
                                 projected=proj, pixel_size=pixel_size)
-    out_coh_tiff = os.path.join(out_dir, date_bundle + '_coherence.tif')
-    write_TIFF_format(coh_tc, out_coh_tiff)
-    wrapped_tc = terrain_correction(product_unwrapped, band=band_unw[3],
-                                    projected=proj, pixel_size=pixel_size)
-    out_w_tiff = os.path.join(out_dir, date_bundle + '_wrapped_phase.tif')
-    write_TIFF_format(wrapped_tc, out_w_tiff)
-    unwrapped_tc = terrain_correction(product_unwrapped, band=band_unw[5],
-                                      projected=proj, pixel_size=pixel_size)
-    out_unw_tiff = os.path.join(out_dir, date_bundle + '_unwrapped_phase.tif')
-    write_TIFF_format(unwrapped_tc, out_unw_tiff)
+    # Create new elevation band with valid pixels above coherence threshold
+    bands_comb_tc = list(product_comb_tc.getBandNames())
+    elev_filter = filter_elevation(product_comb_tc,
+                                   bands_comb_tc[4], bands_comb_tc[2],
+                                   coherence_threshold, nodataval)
+    product_comb_tc_filtered = collocate(product_comb_tc, elev_filter)
+    bands_comb_tc_filtered = list(product_comb_tc_filtered.getBandNames())
+    # Save to TIFF and BEAM-DIMAP
+    out_filename = os.path.join(out_dir, 'out_P4')
+    write_BEAM_DIMAP_format(product_comb_tc_filtered, out_filename)
+    out_prod_tiff = os.path.join(out_dir, date_bundle + '_out_P4.tif')
+    write_TIFF_format(product_comb_tc_filtered, out_prod_tiff)
     # TODO: save elevation filtered by coherence threshold
     #   Probably using GDAL or rasterio
+    # Write user settings to log file
+    file = open(os.path.join(out_dir, 'log.txt'), 'a')
+    file.write(
+        '\nOutput TIFF properties:\n' +
+        'Band names\n' +
+        '- Band 1: ' + bands_comb_tc_filtered[0] + '\n' +
+        '- Band 2: ' + bands_comb_tc_filtered[1] + '\n' +
+        '- Band 3: ' + bands_comb_tc_filtered[2] + '\n' +
+        '- Band 4: ' + bands_comb_tc_filtered[3] + '\n' +
+        '- Band 5: ' + bands_comb_tc_filtered[4] + '\n' +
+        '- Band 6: ' + bands_comb_tc_filtered[5] + '\n' +
+        '- Band 7: ' + bands_comb_tc_filtered[6] + ' (can be ignored)' + '\n' +
+        'No data value: ' + str(nodataval) + '\n'
+    )
+    file.close
     print("Pipeline [P4] complete")
 
 
@@ -816,5 +864,6 @@ run_P4(
     dem=args.dem,
     proj=args.output_projected,
     subset=args.subset_toggle,
-    pixel_size=args.pixel_size
+    pixel_size=args.pixel_size,
+    coherence_threshold=args.coherence_threshold
 )
