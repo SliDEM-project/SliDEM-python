@@ -79,8 +79,10 @@ parser.add_argument(
     '--dem',
     type=str,
     default="Copernicus 30m Global DEM",
-    help='''Set DEM for back-geocoding, defaults to
-    Copernicus 30m Global DEM.'''
+    help='''Set DEM for back-geocoding. 
+    Defaults to `Copernicus 30m Global DEM`.
+    To choose from: `SRTM 3Sec`, `SRTM 1Sec HGT`,
+     `GETASSE30`, `CDEM`'''
 )
 parser.add_argument(
     '--subset_toggle',
@@ -203,6 +205,12 @@ parser.add_argument(
     type=float,
     default=30.0,
     help='''When applying terrain correction, what pixel size to use, defaults to 30'''
+)
+parser.add_argument(
+    '--no_data_value',
+    type=float,
+    default=-99999,
+    help='''Value to use for no data, defaults to -99999'''
 )
 parser.add_argument(
     '--coherence_threshold',
@@ -559,6 +567,13 @@ def set_no_data(product, bands, ndval):
     return product
 
 
+# [P4] Function to select band
+def band_select(product, bands):
+    parameters.put('sourceBands', bands)
+    output = GPF.createProduct('BandSelect', parameters, product)
+    return output
+
+
 # [P4] Filter elevation pixels by coherence threshold
 def filter_elevation(product, elev_band, coh_band, coh_th, nodata):
     bandmath_expression = 'if ' + coh_band + ' > ' + str(coh_th) +\
@@ -737,7 +752,7 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
         'Tiles overlap: row ' + str(tile_overlap_row) +
-        ', col ' + str(tile_overlap_row) + '\n'
+        ', col ' + str(tile_overlap_row) + '\n' 
         'Cost mode: ' + cost_mode + '\n'
     )
     file.close
@@ -758,13 +773,14 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
 
 
 def run_P4(out_dir, dem=None, subset=None, proj=None,
-           pixel_size=None, coherence_threshold=None):
+           pixel_size=None, coherence_threshold=None, nodataval=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
         'Pixel size: ' + str(pixel_size) + '\n'
         'Coherence threshold: ' + str(coherence_threshold) + '\n'
+        'No data value: ' + str(nodataval) + '\n'
     )
     file.close
     if subset:
@@ -784,7 +800,6 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     # Combine elevation product with intensity, coherence, wrapped and unwrapped phase
     product_comb = collocate(product_unwrapped, elevation)
     bands_comb = list(product_comb.getBandNames())
-    nodataval = -99999
     product_comb = set_no_data(product_comb, bands_comb[2:7], nodataval)
     # Terrain correct
     product_comb_tc = terrain_correction(product_comb, band=','.join(bands_comb[2:7]),
@@ -796,56 +811,59 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
                                    coherence_threshold, nodataval)
     product_comb_tc_filtered = collocate(product_comb_tc, elev_filter)
     bands_comb_tc_filtered = list(product_comb_tc_filtered.getBandNames())
-    # Save to TIFF and BEAM-DIMAP
+    # Save to BEAM-DIMAP
     out_filename = os.path.join(out_dir, 'out_P4')
     write_BEAM_DIMAP_format(product_comb_tc_filtered, out_filename)
-    out_prod_tiff = os.path.join(out_dir, date_bundle + '_out_P4.tif')
-    write_TIFF_format(product_comb_tc_filtered, out_prod_tiff)
-    # Write user settings to log file
-    file = open(os.path.join(out_dir, 'log.txt'), 'a')
-    file.write(
-        '\nOutput TIFF properties:\n' +
-        'Band names\n' +
-        '- Band 1: ' + bands_comb_tc_filtered[0] + '\n' +
-        '- Band 2: ' + bands_comb_tc_filtered[1] + '\n' +
-        '- Band 3: ' + bands_comb_tc_filtered[2] + '\n' +
-        '- Band 4: ' + bands_comb_tc_filtered[3] + '\n' +
-        '- Band 5: ' + bands_comb_tc_filtered[4] + '\n' +
-        '- Band 6: ' + bands_comb_tc_filtered[5] + '\n' +
-        '- Band 7: ' + bands_comb_tc_filtered[6] + ' (can be ignored)' + '\n' +
-        'No data value: ' + str(nodataval) + '\n'
-    )
-    file.close
+    # Save each band to a TIFF
+    intensity = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[0])
+    intensity_tiff = os.path.join(out_dir, date_bundle + '_intensity.tif')
+    write_TIFF_format(intensity, intensity_tiff)
+    wrapped = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[1])
+    wrapped_tiff = os.path.join(out_dir, date_bundle + '_wrapped_phase.tif')
+    write_TIFF_format(wrapped, wrapped_tiff)
+    coherence = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[2])
+    coherence_tiff = os.path.join(out_dir, date_bundle + '_coherence.tif')
+    write_TIFF_format(coherence, coherence_tiff)
+    unwrapped = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[3])
+    unwrapped_tiff = os.path.join(out_dir, date_bundle + '_unwrapped_phase.tif')
+    write_TIFF_format(unwrapped, unwrapped_tiff)
+    elevation = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[4])
+    elevation_tiff = os.path.join(out_dir, date_bundle + '_elevation.tif')
+    write_TIFF_format(elevation, elevation_tiff)
+    elevation_cohth = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[5])
+    elevation_cohth_tiff = os.path.join(out_dir, date_bundle +
+                                        '_elevation_filtered_cohth_' + str(coherence_threshold)+'.tif')
+    write_TIFF_format(elevation_cohth, elevation_cohth_tiff)
     print("Pipeline [P4] complete")
 
 
 # Run the workflow
-run_P1(
-    file1=file_path_1, file2=file_path_2,
-    aoi=args.aoi_path, polarization=args.polarization,
-    dem=args.dem, out_dir=output_dir,
-    ifg_squarepixel=args.ifg_squarepixel,
-    ifg_cohwin_rg=args.ifg_cohwin_rg,
-    ifg_cohwin_az=args.ifg_cohwin_az,
-    multilooking=args.multilook_toggle,
-    ml_rangelooks=args.multilook_range,
-    goldsteinfiltering=args.goldstein_toggle,
-    gpf_fftsize=args.gpf_fftsize,
-    gpf_win=args.gpf_win,
-    gpf_cohmask=args.gpf_cohmask,
-    gpf_cohth=args.gpf_cohth,
-    subsetting=args.subset_toggle,
-    subset_buffer=args.aoi_buffer
-)
-
-run_P3(
-    out_dir=output_dir,
-    tiles=args.snaphu_tiles,
-    cost_mode=args.snaphu_costmode,
-    tile_overlap_row=args.snaphu_tile_overlap_row,
-    tile_overlap_col=args.snaphu_tile_overlap_col,
-    subset=args.subset_toggle
-)
+# run_P1(
+#     file1=file_path_1, file2=file_path_2,
+#     aoi=args.aoi_path, polarization=args.polarization,
+#     dem=args.dem, out_dir=output_dir,
+#     ifg_squarepixel=args.ifg_squarepixel,
+#     ifg_cohwin_rg=args.ifg_cohwin_rg,
+#     ifg_cohwin_az=args.ifg_cohwin_az,
+#     multilooking=args.multilook_toggle,
+#     ml_rangelooks=args.multilook_range,
+#     goldsteinfiltering=args.goldstein_toggle,
+#     gpf_fftsize=args.gpf_fftsize,
+#     gpf_win=args.gpf_win,
+#     gpf_cohmask=args.gpf_cohmask,
+#     gpf_cohth=args.gpf_cohth,
+#     subsetting=args.subset_toggle,
+#     subset_buffer=args.aoi_buffer
+# )
+#
+# run_P3(
+#     out_dir=output_dir,
+#     tiles=args.snaphu_tiles,
+#     cost_mode=args.snaphu_costmode,
+#     tile_overlap_row=args.snaphu_tile_overlap_row,
+#     tile_overlap_col=args.snaphu_tile_overlap_col,
+#     subset=args.subset_toggle
+# )
 
 run_P4(
     out_dir=output_dir,
@@ -853,5 +871,6 @@ run_P4(
     proj=args.output_projected,
     subset=args.subset_toggle,
     pixel_size=args.pixel_size,
-    coherence_threshold=args.coherence_threshold
+    coherence_threshold=args.coherence_threshold,
+    nodataval=args.no_data_value
 )
