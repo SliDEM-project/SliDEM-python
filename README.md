@@ -123,7 +123,7 @@ Here you will be able to check if there was snow during your time period, if the
 very dense vegetation that might result in errors, etc. 
 
 **IMPORTANT!**
-Since the download step will be done through the ASF server, we need credentials that allow you to obtain the data. 
+Since the download step is done through the ASF server, we need credentials that allow you to obtain the data. 
 The credentials should be saved in a file called `.env` on the directory mounted as a volume on the docker.
 Username should be saved as `asf_login` and password as `asf_pwd`. See an example below:
 
@@ -131,6 +131,9 @@ Username should be saved as `asf_login` and password as `asf_pwd`. See an exampl
 asf_login='USERNAME'
 asf_pwd='PASSWORD'
 ```
+
+If you cloned this repo, you will see an example of such a file on the main directory.
+Here you can replace `USERNAME` and `PASSWORD` with your credentials.
 
 Once the changes to the CSV files are saved and your `.env` file is ready, you can run the `1_download_s1.py` script as shown below.
 
@@ -159,11 +162,22 @@ Several other parameters can be passed to specific parts of the workflow.
 Check the help for their descriptions and default values.
 ```commandline
 # Usage example
-python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index 0 --aoi_path data/aoi/alta.geojson
+python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index 0 --aoi_path data/aoi.geojson
 ```
 ```commandline
 # Get help
 python3.6 home/scripts/2_dem_generation.py -h
+```
+
+If you are looking into generating DEMs in a loop, you can create a shell file (`.sh` extension) with the following:
+
+```shell
+# replace {0..1} with the number of image pairs you 
+# have set on your queried file (CSV). So for example, if you
+# set Download = TRUE for 5 pairs then do {0..4}
+for i in {0..1}; do
+  python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index "$i" --aoi_path data/aoi.geojson
+done
 ```
 
 Depending on whether you have been using the container before, the processing might take more or less time.
