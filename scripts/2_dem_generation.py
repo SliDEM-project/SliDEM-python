@@ -746,20 +746,10 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
         # takes subset result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2_subset')
         product = read(in_filename + ".dim")  # reads .dim
-        # bands = list(product.getBandNames())
-        # product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
-        # product.getBand(bands[3]).setNoDataValueUsed(True)
-        # product.getBand(bands[4]).setGeophysicalNoDataValue(-99999)
-        # product.getBand(bands[4]).setNoDataValueUsed(True)
     else:
         # takes result from previous pipeline
         in_filename = os.path.join(out_dir, 'out_P2')
         product = read(in_filename + ".dim")  # reads .dim
-        # bands = list(product.getBandNames())
-        # product.getBand(bands[3]).setGeophysicalNoDataValue(-99999)
-        # product.getBand(bands[3]).setNoDataValueUsed(True)
-        # product.getBand(bands[4]).setGeophysicalNoDataValue(-99999)
-        # product.getBand(bands[4]).setNoDataValueUsed(True)
     out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
                   tile_overlap_row, tile_overlap_col)
@@ -811,8 +801,6 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     write_BEAM_DIMAP_format(product_comb_tc_filtered, out_filename)
     out_prod_tiff = os.path.join(out_dir, date_bundle + '_out_P4.tif')
     write_TIFF_format(product_comb_tc_filtered, out_prod_tiff)
-    # TODO: save elevation filtered by coherence threshold
-    #   Probably using GDAL or rasterio
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
