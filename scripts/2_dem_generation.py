@@ -569,8 +569,9 @@ def set_no_data(product, bands, ndval):
 
 # [P4] Function to select band
 def band_select(product, bands):
+    parameters = HashMap()
     parameters.put('sourceBands', bands)
-    output = GPF.createProduct('BandSelect', parameters, product)
+    output = GPF.createProduct('Subset', parameters, product)
     return output
 
 
@@ -815,6 +816,7 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     out_filename = os.path.join(out_dir, 'out_P4')
     write_BEAM_DIMAP_format(product_comb_tc_filtered, out_filename)
     # Save each band to a TIFF
+    print(bands_comb_tc_filtered[0])
     intensity = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[0])
     intensity_tiff = os.path.join(out_dir, date_bundle + '_intensity.tif')
     write_TIFF_format(intensity, intensity_tiff)
