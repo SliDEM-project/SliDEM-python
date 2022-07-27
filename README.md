@@ -169,6 +169,7 @@ python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir 
 python3.6 home/scripts/2_dem_generation.py -h
 ```
 
+#### Generating DEMs in a loop
 If you are looking into generating DEMs in a loop, you can create a shell file (`.sh` extension) with the following:
 
 ```shell
@@ -185,9 +186,7 @@ The main reason is that reference DEM data is being downloaded for the data.
 
 **KNOWN ISSUES!**
 - If your AOI is at the coast, the SNAPHU exporting might fail without a warning. 
-This will of course result in faulty results. 
-- If your AOI intersects multiple subswaths, then unfortunately your process will
-exit with an error message. 
+This will of course result in faulty results.
 
 This list is not exhaustive and we try to document these problems in our issue tracker.
 
