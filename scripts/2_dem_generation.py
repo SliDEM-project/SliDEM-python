@@ -66,7 +66,6 @@ parser.add_argument(
 )
 parser.add_argument(
     '--pair_ids',
-    # type=list,
     nargs="+",
     default=None,
     help='''what are the scene IDs to process, in a list form. Ignored when query_result
@@ -228,6 +227,16 @@ parser.add_argument(
     type=float,
     default=0.15,
     help='''Minimum coherence value to export valid elevation pixels, defaults to 0.15'''
+)
+parser.add_argument(
+    '--pipelines',
+    nargs="+",
+    default=['P1', 'P2', 'P3'],
+    help='''Which pipelines to run, defaults to all.
+    Pipeline 1: generates interferogram
+    Pipeline 2: performs snaphu unwrapping
+    Pipeline 3: generates DEM.
+    Useful for debugging.'''
 )
 args = parser.parse_args()
 
@@ -625,8 +634,8 @@ def filter_elevation(product, elev_band, coh_band, coh_th, nodata):
 
 
 # Pipe functions
-# Pipeline 1 [P1]: extract subswaths, bursts and run SNAP workflow
-def run_P1(out_dir, file1, file2, polarization, aoi=None,
+# Pipeline 1 [P1]:
+def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
            topophaseremove=False, dem=None,
            ifg_squarepixel=None, ifg_cohwin_rg=None,
            ifg_cohwin_az=None,
@@ -794,19 +803,20 @@ def run_P1(out_dir, file1, file2, polarization, aoi=None,
         product_ss = subset(product, aoi, buffer=subset_buffer)
         out_filename = os.path.join(out_dir, 'out_P2_subset')
         write_BEAM_DIMAP_format(product_ss, out_filename)
-    print("Pipeline [P2] complete")
+    print("Pipeline [P1] for interferogam creation complete")
 
 
-def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
+# [P2]:
+def run_P2_unwrap(out_dir, tiles, cost_mode, tile_overlap_row,
            tile_overlap_col, subset=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-                                 'Tiles overlap: row ' + str(tile_overlap_row) +
+        'Tiles overlap: row ' + str(tile_overlap_row) +
         ', col ' + str(tile_overlap_row) + '\n'
-                                           'Cost mode: ' + cost_mode + '\n'
+        'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
@@ -822,19 +832,19 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
                   tile_overlap_row, tile_overlap_col)
     snaphu_unwrapping(out_dir_snaphu)
-    print("Pipeline [P3] complete")
+    print("Pipeline [P2] for product unwrapping complete")
 
 
-def run_P4(out_dir, dem=None, subset=None, proj=None,
+# [P3]:
+def run_P3_elevation(out_dir, dem=None, subset=None, proj=None,
            pixel_size=None, coherence_threshold=None, nodataval=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
         'Pixel size: ' + str(pixel_size) + '\n'
-                                           'Coherence threshold: ' + str(coherence_threshold) + '\n'
-                                                                                                'No data value: ' + str(
-            nodataval) + '\n'
+        'Coherence threshold: ' + str(coherence_threshold) + '\n'
+        'No data value: ' + str(nodataval) + '\n'
     )
     file.close
     if subset:
@@ -890,43 +900,46 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
                                         '_elevation_filtered_cohth_' +
                                         str(coherence_threshold) + '.tif')
     write_TIFF_format(elevation_cohth, elevation_cohth_tiff)
-    print("Pipeline [P4] complete")
+    print("Pipeline [P3] for DEM generation complete")
 
 
 # Run the workflow
-run_P1(
-    file1=file_path_1, file2=file_path_2,
-    aoi=args.aoi_path, polarization=args.polarization,
-    dem=args.dem, out_dir=output_dir,
-    ifg_squarepixel=args.ifg_squarepixel,
-    ifg_cohwin_rg=args.ifg_cohwin_rg,
-    ifg_cohwin_az=args.ifg_cohwin_az,
-    multilooking=args.multilook_toggle,
-    ml_rangelooks=args.multilook_range,
-    goldsteinfiltering=args.goldstein_toggle,
-    gpf_fftsize=args.gpf_fftsize,
-    gpf_win=args.gpf_win,
-    gpf_cohmask=args.gpf_cohmask,
-    gpf_cohth=args.gpf_cohth,
-    subsetting=args.subset_toggle,
-    subset_buffer=args.aoi_buffer
-)
+if 'P1' in args.pipelines:
+    run_P1_interferogram(
+        file1=file_path_1, file2=file_path_2,
+        aoi=args.aoi_path, polarization=args.polarization,
+        dem=args.dem, out_dir=output_dir,
+        ifg_squarepixel=args.ifg_squarepixel,
+        ifg_cohwin_rg=args.ifg_cohwin_rg,
+        ifg_cohwin_az=args.ifg_cohwin_az,
+        multilooking=args.multilook_toggle,
+        ml_rangelooks=args.multilook_range,
+        goldsteinfiltering=args.goldstein_toggle,
+        gpf_fftsize=args.gpf_fftsize,
+        gpf_win=args.gpf_win,
+        gpf_cohmask=args.gpf_cohmask,
+        gpf_cohth=args.gpf_cohth,
+        subsetting=args.subset_toggle,
+        subset_buffer=args.aoi_buffer
+    )
 
-run_P3(
-    out_dir=output_dir,
-    tiles=args.snaphu_tiles,
-    cost_mode=args.snaphu_costmode,
-    tile_overlap_row=args.snaphu_tile_overlap_row,
-    tile_overlap_col=args.snaphu_tile_overlap_col,
-    subset=args.subset_toggle
-)
+if 'P2' in args.pipelines:
+    run_P2_unwrap(
+        out_dir=output_dir,
+        tiles=args.snaphu_tiles,
+        cost_mode=args.snaphu_costmode,
+        tile_overlap_row=args.snaphu_tile_overlap_row,
+        tile_overlap_col=args.snaphu_tile_overlap_col,
+        subset=args.subset_toggle
+    )
 
-run_P4(
-    out_dir=output_dir,
-    dem=args.dem,
-    proj=args.output_projected,
-    subset=args.subset_toggle,
-    pixel_size=args.pixel_size,
-    coherence_threshold=args.coherence_threshold,
-    nodataval=args.no_data_value
-)
+if 'P3' in args.pipelines:
+    run_P3_elevation(
+        out_dir=output_dir,
+        dem=args.dem,
+        proj=args.output_projected,
+        subset=args.subset_toggle,
+        pixel_size=args.pixel_size,
+        coherence_threshold=args.coherence_threshold,
+        nodataval=args.no_data_value
+    )
