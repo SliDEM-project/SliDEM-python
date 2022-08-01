@@ -27,7 +27,7 @@ that seem suitable for processing, since this script loops over this file.
 ''',
     epilog='''
 Versions: 
-  v0.1 - 06/2022 - Generate DEMs from S1
+  v0.0.1 - 06/2022 - Generate DEMs from S1
 Authors:
   Lorena Abad - University of Salzburg - lorena.abad@plus.ac.at''',
     formatter_class=argparse.RawTextHelpFormatter

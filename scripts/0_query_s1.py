@@ -37,8 +37,8 @@ according to the scenes that they deem useful.
 ''',
     epilog='''
 Versions: 
-  v0.1 - 06/2019 - Download from SentinelHub repository
-  v0.2 - 11/2021 - Query from ASF repository
+  v0.0.0 - 06/2019 - Download from SentinelHub repository
+  v0.0.1 - 11/2021 - Query from ASF repository
 Authors:
   Lorena Abad - University of Salzburg - lorena.abad@plus.ac.at
   Benjamin Robson - University of Bergen''',
@@ -107,7 +107,7 @@ args = parser.parse_args()
 load_dotenv('home/.env')
 os.chdir('home/')
 
-# Create download directory if not exisiting
+# Create download directory if not existing
 if not os.path.exists(args.download_folder):
     os.mkdir(args.download_folder)
 

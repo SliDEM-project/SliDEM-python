@@ -124,7 +124,7 @@ very dense vegetation that might result in errors, etc.
 
 **IMPORTANT!**
 Since the download step is done through the ASF server, we need credentials that allow you to obtain the data. 
-The credentials should be saved in a file called `.env` on the directory mounted as a volume on the docker.
+The credentials should be saved in a file called [`.env`](.env) on the directory mounted as a volume on the docker.
 Username should be saved as `asf_login` and password as `asf_pwd`. See an example below:
 
 ```text
