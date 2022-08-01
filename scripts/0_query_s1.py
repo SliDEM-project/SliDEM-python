@@ -102,9 +102,6 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Input login credentials
-# Change credentials inside a .env file
-load_dotenv('home/.env')
 os.chdir('home/')
 
 # Create download directory if not existing
@@ -201,8 +198,11 @@ for i in range(0, len(geo_ids)):
                                (abs(baseline['PerpendicularBaseline']) >= args.bperpth_min) &
                                (abs(baseline['PerpendicularBaseline']) <= args.bperpth_max)]
     baseline_df = baseline_filter[
-        ['Granule Name', 'Path Number', 'Ascending or Descending?', 'TemporalBaseline', 'PerpendicularBaseline']]
-    baseline_df.rename(columns={'Granule Name': 'MatchID', 'Path Number': 'Orbit', 'Ascending or Descending?': 'Pass'},
+        ['Granule Name', 'Path Number', 'Ascending or Descending?',
+         'TemporalBaseline', 'PerpendicularBaseline']]
+    baseline_df.rename(columns={'Granule Name': 'MatchID',
+                                'Path Number': 'Orbit',
+                                'Ascending or Descending?': 'Pass'},
                        inplace=True)
     baseline_df.insert(0, 'ReferenceID', scene_id, True)
 
@@ -251,6 +251,6 @@ candidates_df.to_csv(file_name, index=False)
 os.remove(os.path.join(args.download_folder, tempfile1))
 os.remove(os.path.join(args.download_folder, tempfile2))
 print("CSV file with images to be processed has been written to " + file_name)
-print("Now is your turn! Open the file and check the potential S1 pairs, "
+print("Now it is your turn! Open the file and check the potential S1 pairs, "
       "which of them would you want to download? Update the Download column to TRUE "
       "to set those scene pairs you would like to download and process.")
