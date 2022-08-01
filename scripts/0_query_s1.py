@@ -3,8 +3,10 @@
 # Import modules
 import argparse
 import asf_search as asf
-from dotenv import load_dotenv
 import geopandas as gpd
+from pyproj import Proj
+from pprint import pprint
+import json
 import logging
 import numpy as np
 import os
@@ -45,7 +47,7 @@ Authors:
     formatter_class=argparse.RawTextHelpFormatter
 )
 parser.add_argument(
-    '--download_folder',
+    '--download_dir',
     type=str,
     default='data',
     help='''relative path (refers to mounted volume) to the folder
@@ -68,7 +70,7 @@ parser.add_argument(
     help='''start date of S1 scene query'''
 )
 parser.add_argument(
-    '--aoi',
+    '--aoi_path',
     type=str,
     help='''path to GeoJSON file (WGS84 - EPSG:4326) with the study area outline.
     Any scenes intersecting this area will be included in the query result'''
@@ -105,12 +107,21 @@ args = parser.parse_args()
 os.chdir('home/')
 
 # Create download directory if not existing
-if not os.path.exists(args.download_folder):
-    os.mkdir(args.download_folder)
+if not os.path.exists(args.download_dir):
+    os.mkdir(args.download_dir)
 
 # Setup params
+aoidf = gpd.read_file(args.aoi_path)
+if aoidf.crs != 'epsg:4326':
+    aoidf = aoidf.to_crs(4326)
+    tempgeojson = os.path.join(args.download_dir, "temp_aoi.geojson")
+    aoidf.to_file(tempgeojson, driver="GeoJSON")
+    footprint = geojson_to_wkt(read_geojson(tempgeojson))
+    os.remove(tempgeojson)
+else:
+    footprint = geojson_to_wkt(read_geojson(args.aoi_path))
+
 dates = '[' + args.date_start + 'T00:00:00.000Z TO ' + args.date_end + 'T00:00:00.000Z]'
-footprint = geojson_to_wkt(read_geojson(args.aoi))
 tempfile1 = 'tmpgeo.csv'
 # Repository to query, can be sentinelhub or asf
 repo = 'asf'
@@ -147,7 +158,7 @@ if repo == 'sentinelhub':  # not active currently, seems to only query recent im
     products_df = api.to_dataframe(products)
 
     # Write to CSV file
-    file_name = os.path.join(args.download_folder, tempfile1)
+    file_name = os.path.join(args.download_dir, tempfile1)
     products_df.to_csv(file_name, index=False)
 elif repo == "asf":
     products = asf.geo_search(platform=[asf.PLATFORM.SENTINEL1],
@@ -159,7 +170,7 @@ elif repo == "asf":
     products_df = pd.DataFrame([p.properties for p in products])
 
     # Write to CSV file
-    file_name = os.path.join(args.download_folder, tempfile1)
+    file_name = os.path.join(args.download_dir, tempfile1)
     products_df.to_csv(file_name, index=False)
 else:
     print("Repository not supported.")
@@ -169,7 +180,7 @@ candidates = []
 
 # Read scene IDs
 # Get ids for filtered images
-geo_prod = pd.read_csv(os.path.join(args.download_folder, tempfile1))
+geo_prod = pd.read_csv(os.path.join(args.download_dir, tempfile1))
 geo_ids = geo_prod['fileID'].map(lambda fileID: str.replace(fileID, '-SLC', '')).tolist()
 
 # Loop over geo_ids to get matching scenes with desired temporal and perpendicular baselines
@@ -182,7 +193,7 @@ for i in range(0, len(geo_ids)):
     response = requests.post(url)
 
     # Write to .CSV
-    baseline_file = os.path.join(args.download_folder, tempfile2)
+    baseline_file = os.path.join(args.download_dir, tempfile2)
     f = open(baseline_file, "w")
     f.write(response.text)
     f.close()
@@ -228,7 +239,6 @@ candidates_df['inAOInDates'] = candidates_df['MatchID'].isin(geo_ids)
 candidates_df['Download'] = False
 
 # Create column with link to eo-browser to check for snow conditions using the NDSI
-aoidf = gpd.read_file(args.aoi)
 aoidf['center'] = aoidf['geometry'].centroid
 aoi_lat = aoidf.center.y.astype(str)[0]
 aoi_lng = aoidf.center.x.astype(str)[0]
@@ -246,10 +256,10 @@ candidates_df['EObrowser'] = ('https://apps.sentinel-hub.com/eo-browser/' +
 candidates_df.sort_values(by=['inAOInDates'], inplace=True, ascending=False)
 
 # Write to CSV file and remove temporal files
-file_name = os.path.join(args.download_folder, args.query_result)
+file_name = os.path.join(args.download_dir, args.query_result)
 candidates_df.to_csv(file_name, index=False)
-os.remove(os.path.join(args.download_folder, tempfile1))
-os.remove(os.path.join(args.download_folder, tempfile2))
+os.remove(os.path.join(args.download_dir, tempfile1))
+os.remove(os.path.join(args.download_dir, tempfile2))
 print("CSV file with images to be processed has been written to " + file_name)
 print("Now it is your turn! Open the file and check the potential S1 pairs, "
       "which of them would you want to download? Update the Download column to TRUE "

@@ -30,7 +30,7 @@ Authors:
     formatter_class=argparse.RawTextHelpFormatter
 )
 parser.add_argument(
-    '--download_folder',
+    '--download_dir',
     type=str,
     default='data',
     help='relative path (refers to mounted volume) to the folder where S1 scenes will be downloaded'
@@ -39,7 +39,7 @@ parser.add_argument(
     '--query_result',
     type=str,
     help='''path to the CSV file with query results from 0_query_s1.py. 
-  Should be located in the specified download_folder.'''
+  Should be located in the specified download_dir.'''
 )
 parser.add_argument(
     '--asf_login',
@@ -72,7 +72,7 @@ session.auth_with_creds(usrnm, passw)
 
 # Download from URL list
 products = pd.read_csv(
-    os.path.join(args.download_folder, args.query_result),
+    os.path.join(args.download_dir, args.query_result),
     sep=None, engine='python'
 )
 productsIn = products[products['Download']]
@@ -82,7 +82,7 @@ matchIDs = productsIn['MatchID'].tolist()
 productIDs = list(set(refIDs + matchIDs))
 
 # Check if products are already on the download directory
-productList = [args.download_folder + "/" + f"{s}.zip" for s in productIDs]
+productList = [args.download_dir + "/" + f"{s}.zip" for s in productIDs]
 productExists = []
 for p in productList:
     productExists.append(os.path.exists(p))
@@ -93,6 +93,6 @@ productIDs_download = [d for (d, remove) in zip(productIDs, productExists) if no
 print("Scenes to download: ", len(productIDs_download))
 
 urls = [f"https://datapool.asf.alaska.edu/SLC/SB/{s}.zip" for s in productIDs_download]
-asf.download_urls(urls=urls, path=args.download_folder, session=session, processes=4)
+asf.download_urls(urls=urls, path=args.download_dir, session=session, processes=4)
 
 print("All images downloaded!")

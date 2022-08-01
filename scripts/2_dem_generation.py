@@ -3,6 +3,7 @@
 # Import modules
 import argparse
 import glob
+import geopandas as gpd
 import json
 import numpy as np
 import os
@@ -323,9 +324,21 @@ parameters = HashMap()
 
 # [P1|P2] Function to read AOI
 def read_aoi(aoi, buffer):
+    aoidf = gpd.read_file(aoi)
+    if aoidf.crs != 'epsg:4326':
+        aoidf = aoidf.to_crs(4326)
+        tempgeojson = os.path.join(args.download_dir, "temp_aoi.geojson")
+        aoidf.to_file(tempgeojson, driver="GeoJSON")
+        aoi_file = tempgeojson
+    else:
+        aoi_file = aoi
     # Read aoi with shapely
-    with open(aoi) as f:
+    with open(aoi_file) as f:
         features = json.load(f)["features"]
+
+    if os.path.exists(tempgeojson):
+        os.remove(tempgeojson)
+
     return GeometryCollection(
         [shape(feature["geometry"]).buffer(buffer) for feature in features]
     )
@@ -636,14 +649,14 @@ def filter_elevation(product, elev_band, coh_band, coh_th, nodata):
 # Pipe functions
 # Pipeline 1 [P1]:
 def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
-           topophaseremove=False, dem=None,
-           ifg_squarepixel=None, ifg_cohwin_rg=None,
-           ifg_cohwin_az=None,
-           multilooking=None, ml_rangelooks=None,
-           goldsteinfiltering=None,
-           gpf_fftsize=None, gpf_win=None,
-           gpf_cohmask=None, gpf_cohth=None,
-           subsetting=None, subset_buffer=None):
+                         topophaseremove=False, dem=None,
+                         ifg_squarepixel=None, ifg_cohwin_rg=None,
+                         ifg_cohwin_az=None,
+                         multilooking=None, ml_rangelooks=None,
+                         goldsteinfiltering=None,
+                         gpf_fftsize=None, gpf_win=None,
+                         gpf_cohmask=None, gpf_cohth=None,
+                         subsetting=None, subset_buffer=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'w')
     file.write(
@@ -808,15 +821,15 @@ def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
 
 # [P2]:
 def run_P2_unwrap(out_dir, tiles, cost_mode, tile_overlap_row,
-           tile_overlap_col, subset=None):
+                  tile_overlap_col, subset=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-        'Tiles overlap: row ' + str(tile_overlap_row) +
+                                 'Tiles overlap: row ' + str(tile_overlap_row) +
         ', col ' + str(tile_overlap_row) + '\n'
-        'Cost mode: ' + cost_mode + '\n'
+                                           'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
@@ -837,14 +850,15 @@ def run_P2_unwrap(out_dir, tiles, cost_mode, tile_overlap_row,
 
 # [P3]:
 def run_P3_elevation(out_dir, dem=None, subset=None, proj=None,
-           pixel_size=None, coherence_threshold=None, nodataval=None):
+                     pixel_size=None, coherence_threshold=None, nodataval=None):
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
         'Pixel size: ' + str(pixel_size) + '\n'
-        'Coherence threshold: ' + str(coherence_threshold) + '\n'
-        'No data value: ' + str(nodataval) + '\n'
+                                           'Coherence threshold: ' + str(coherence_threshold) + '\n'
+                                                                                                'No data value: ' + str(
+            nodataval) + '\n'
     )
     file.close
     if subset:

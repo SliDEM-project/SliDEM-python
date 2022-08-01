@@ -102,7 +102,7 @@ intersects your AOI and find matching scenes for the whole S1 lifetime
 
 ```commandline
 # Usage example
-python3.6 home/scripts/0_query_s1.py --download_folder data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi data/aoi/alta.geojson
+python3.6 home/scripts/0_query_s1.py --download_dir data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi_path data/aoi/alta.geojson
 ```
 ```commandline
 # Get help
@@ -139,7 +139,7 @@ Once the changes to the CSV files are saved and your `.env` file is ready, you c
 
 ```commandline
 # Usage example
-python3.6 home/scripts/1_download_s1.py --download_folder data/s1/ --query_result s1_scenes.csv
+python3.6 home/scripts/1_download_s1.py --download_dir data/s1/ --query_result s1_scenes.csv
 ```
 ```commandline
 # Get help
