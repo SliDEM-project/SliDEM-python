@@ -324,10 +324,10 @@ parameters = HashMap()
 
 # [P1|P2] Function to read AOI
 def read_aoi(aoi, buffer):
+    tempgeojson = os.path.join(args.download_dir, "temp_aoi.geojson")
     aoidf = gpd.read_file(aoi)
     if aoidf.crs != 'epsg:4326':
         aoidf = aoidf.to_crs(4326)
-        tempgeojson = os.path.join(args.download_dir, "temp_aoi.geojson")
         aoidf.to_file(tempgeojson, driver="GeoJSON")
         aoi_file = tempgeojson
     else:
