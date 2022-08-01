@@ -169,6 +169,12 @@ python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir 
 python3.6 home/scripts/2_dem_generation.py -h
 ```
 
+If you skipped the query and download steps, you can pass your own index pairs as a list to the dem generation script:
+```commandline
+# Usage example
+python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --pair_ids 's1_scene_id_1' 's1_scene_id_2' --aoi_path data/aoi.geojson
+```
+
 #### Generating DEMs in a loop
 If you are looking into generating DEMs in a loop, you can create a shell file (`.sh` extension) with the following:
 

@@ -36,6 +36,7 @@ parser.add_argument(
     '--download_dir',
     type=str,
     default='data',
+    required=True,
     help='''relative path (refers to mounted volume) to the directory
   where S1 scenes were downloaded'''
 )
@@ -43,6 +44,7 @@ parser.add_argument(
     '--output_dir',
     type=str,
     default='data',
+    required=True,
     help='''relative path (refers to mounted volume) to the directory where'
   results should be written into'''
 )
@@ -63,8 +65,17 @@ parser.add_argument(
   Defaults to the first pair (pair_index=0)'''
 )
 parser.add_argument(
+    '--pair_ids',
+    # type=list,
+    nargs="+",
+    default=None,
+    help='''what are the scene IDs to process, in a list form. Ignored when query_result
+    and pair_index are given.'''
+)
+parser.add_argument(
     '--aoi_path',
     type=str,
+    required=True,
     help='''path to GeoJSON file (WGS84 - EPSG:4326) with the
     study area outline. This is used to extract the subswaths and
     bursts automatically and to subset the area if desired.'''
@@ -224,54 +235,74 @@ args = parser.parse_args()
 os.chdir('home/')
 
 # Read in image pairs
-products = pd.read_csv(
-    os.path.join(args.download_dir, args.query_result),
-    sep=None, engine='python'
-)
-productsIn = products[products['Download']]
+if args.query_result is not None:
+    products = pd.read_csv(
+        os.path.join(args.download_dir, args.query_result),
+        sep=None, engine='python'
+    )
+    productsIn = products[products['Download']]
 
+    prodRefDate = productsIn.iloc[args.pair_index]['ReferenceDate']
+    prodMatDate = productsIn.iloc[args.pair_index]['MatchDate']
+    prodRefId = productsIn.iloc[args.pair_index]['ReferenceID']
+    prodMatId = productsIn.iloc[args.pair_index]['MatchID']
+elif args.pair_ids is not None:
+    prodRefId = args.pair_ids[0]
+    prodRefDate = pd.to_datetime(
+        prodRefId[17:25],
+        format='%Y%m%d'
+    )
+    prodMatId = args.pair_ids[1]
+    prodMatDate = pd.to_datetime(
+        prodMatId[17:25],
+        format='%Y%m%d'
+    )
+else:
+    raise ValueError("You need to provide either the "
+                     "path to the query_result CSV file "
+                     "or a list containing pair_ids")
+
+# Set image order
 # "before" image .zip
-if pd.to_datetime(productsIn.iloc[args.pair_index]['ReferenceDate']) < pd.to_datetime(
-        productsIn.iloc[args.pair_index]['MatchDate']):
-    file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
+if pd.to_datetime(prodRefDate) < pd.to_datetime(prodMatDate):
+    file_path_1 = os.path.join(args.download_dir, prodRefId + '.zip')
 else:
-    file_path_1 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
+    file_path_1 = os.path.join(args.download_dir, prodMatId + '.zip')
 # "after" image .zip
-if pd.to_datetime(productsIn.iloc[args.pair_index]['MatchDate']) > pd.to_datetime(
-        productsIn.iloc[args.pair_index]['ReferenceDate']):
-    file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['MatchID'] + '.zip')
+if pd.to_datetime(prodMatDate) > pd.to_datetime(prodRefDate):
+    file_path_2 = os.path.join(args.download_dir, prodMatId + '.zip')
 else:
-    file_path_2 = os.path.join(args.download_dir, productsIn.iloc[args.pair_index]['ReferenceID'] + '.zip')
+    file_path_2 = os.path.join(args.download_dir, prodRefId + '.zip')
 
-# Hashmap is used to give us access to all JAVA operators
-HashMap = jpy.get_type('java.util.HashMap')
-parameters = HashMap()
+ref_date_str = pd.to_datetime(
+    prodRefDate,
+    yearfirst=False,
+    dayfirst=True
+)
+mat_date_str = pd.to_datetime(
+    prodMatDate,
+    yearfirst=False,
+    dayfirst=True
+)
 
 # Create output_dir if not existing
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
 
-# Create new directory on output dir with dates of reference and match image
-ref_date_str = pd.to_datetime(
-    productsIn.iloc[args.pair_index]['ReferenceDate'],
-    yearfirst=False,
-    dayfirst=True
-).strftime('%Y%m%d')
-mat_date_str = pd.to_datetime(
-    productsIn.iloc[args.pair_index]['MatchDate'],
-    yearfirst=False,
-    dayfirst=True
-).strftime('%Y%m%d')
-date_bundle = ref_date_str + '_' + mat_date_str
+# Output directory with date parenthesis
+date_bundle = ref_date_str.strftime('%Y%m%d') + '_' + \
+              mat_date_str.strftime('%Y%m%d')
 output_dir = os.path.join(args.output_dir, 'out_' + date_bundle)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 
 # Get some metadata from the CSV file:
-ref_date = productsIn.iloc[args.pair_index]['ReferenceDate']
-mat_date = productsIn.iloc[args.pair_index]['MatchDate']
-passf = productsIn.iloc[args.pair_index]['Pass']
-orbit = productsIn.iloc[args.pair_index]['Orbit']
+ref_date = ref_date_str.strftime('%d/%m/%Y')
+mat_date = mat_date_str.strftime('%d/%m/%Y')
+
+# Hashmap is used to give us access to all JAVA operators
+HashMap = jpy.get_type('java.util.HashMap')
+parameters = HashMap()
 
 
 # Functions:
@@ -331,7 +362,6 @@ def get_swath_burst(filename, aoi, polar=args.polarization, product_idx=1):
         if 'lastBurstIndex_2' not in df.columns:
             df['lastBurstIndex_2'] = np.nan
         return df
-
 
 
 # [P1|P2|P3|P4] Function to read the .zip file into SNAP
@@ -577,7 +607,7 @@ def band_select(product, bands):
 
 # [P4] Filter elevation pixels by coherence threshold
 def filter_elevation(product, elev_band, coh_band, coh_th, nodata):
-    bandmath_expression = 'if ' + coh_band + ' > ' + str(coh_th) +\
+    bandmath_expression = 'if ' + coh_band + ' > ' + str(coh_th) + \
                           ' then ' + elev_band + ' else ' + str(nodata)
     product.getBand(elev_band)
     BandDescriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
@@ -614,11 +644,31 @@ def run_P1(out_dir, file1, file2, polarization, aoi=None,
         'MatchID path: ' + file2 + '\n' +
         'MatchID date: ' + mat_date + '\n' +
         'Polarization: ' + polarization + '\n' +
-        'Pass: ' + passf + '\n' +
-        'Orbit: ' + str(orbit) + '\n' +
         'DEM for back-geocoding: ' + dem + '\n'
     )
     file.close
+
+    # Read files in
+    product_1 = read(file1)
+    product_2 = read(file2)
+
+    # Get pass & orbit from the input files
+    pass_metadata_p1 = product_1.getMetadataRoot() \
+        .getElement('Abstracted_Metadata') \
+        .getAttribute('PASS').getData()
+    relorbit_metadata_p1 = product_1.getMetadataRoot(). \
+        getElement('Abstracted_Metadata') \
+        .getAttribute('REL_ORBIT').getData()
+    pass_metadata_p2 = product_2.getMetadataRoot() \
+        .getElement('Abstracted_Metadata') \
+        .getAttribute('PASS').getData()
+    relorbit_metadata_p2 = product_2.getMetadataRoot(). \
+        getElement('Abstracted_Metadata') \
+        .getAttribute('REL_ORBIT').getData()
+
+    if str(pass_metadata_p1) != str(pass_metadata_p2) and \
+            str(relorbit_metadata_p1) != str(relorbit_metadata_p2):
+        raise ValueError("Image pair orbits and pass do not match.")
 
     # Apply stsa workflow
     stsa_1 = get_swath_burst(file1, aoi, polar=polarization, product_idx=1)
@@ -634,8 +684,6 @@ def run_P1(out_dir, file1, file2, polarization, aoi=None,
         stsa_df.lastBurstIndex_2.fillna(stsa_df.firstBurstIndex_2, inplace=True)
 
     # Compute InSAR stack overview
-    product_1 = read(file1)
-    product_2 = read(file2)
     # import the stack operator
     # From: https://forum.step.esa.int/t/insar-dinsar-perpendicular-baseline-calculation/3776/34
     stack = jpy.get_type('org.esa.s1tbx.insar.gpf.coregistration.CreateStackOp')
@@ -645,7 +693,11 @@ def run_P1(out_dir, file1, file2, polarization, aoi=None,
         getElement('Abstracted_Metadata').getElement('Baselines')
     # Write to log all the baselines between all master/slave configurations
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
-    file.write('\nCOMPUTED STACKS IN PIPELINE 1:\n')
+    file.write(
+        'Pass: ' + str(pass_metadata_p1) + '\n' +
+        'Orbit: ' + str(relorbit_metadata_p1) + '\n'
+    )
+    file.write('\nCOMPUTED STACKS IN PIPELINE 1:')
     master_ids = list(baseline_root_metadata.getElementNames())
     for master_id in master_ids:
         slave_ids = list(baseline_root_metadata.getElement(master_id).getElementNames())
@@ -752,9 +804,9 @@ def run_P3(out_dir, tiles, cost_mode, tile_overlap_row,
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
         'Tiles: ' + str(tiles) + '\n'
-        'Tiles overlap: row ' + str(tile_overlap_row) +
-        ', col ' + str(tile_overlap_row) + '\n' 
-        'Cost mode: ' + cost_mode + '\n'
+                                 'Tiles overlap: row ' + str(tile_overlap_row) +
+        ', col ' + str(tile_overlap_row) + '\n'
+                                           'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
@@ -780,8 +832,9 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     file.write(
         '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
         'Pixel size: ' + str(pixel_size) + '\n'
-        'Coherence threshold: ' + str(coherence_threshold) + '\n'
-        'No data value: ' + str(nodataval) + '\n'
+                                           'Coherence threshold: ' + str(coherence_threshold) + '\n'
+                                                                                                'No data value: ' + str(
+            nodataval) + '\n'
     )
     file.close
     if subset:
@@ -804,7 +857,7 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     product_comb = set_no_data(product_comb, bands_comb[2:7], nodataval)
     # Terrain correct
     product_comb_tc = terrain_correction(product_comb, band=','.join(bands_comb[2:7]),
-                                projected=proj, pixel_size=pixel_size)
+                                         projected=proj, pixel_size=pixel_size)
     # Create new elevation band with valid pixels above coherence threshold
     bands_comb_tc = list(product_comb_tc.getBandNames())
     elev_filter = filter_elevation(product_comb_tc,
@@ -834,38 +887,39 @@ def run_P4(out_dir, dem=None, subset=None, proj=None,
     write_TIFF_format(elevation, elevation_tiff)
     elevation_cohth = band_select(product_comb_tc_filtered, bands=bands_comb_tc_filtered[5])
     elevation_cohth_tiff = os.path.join(out_dir, date_bundle +
-                                        '_elevation_filtered_cohth_' + str(coherence_threshold)+'.tif')
+                                        '_elevation_filtered_cohth_' +
+                                        str(coherence_threshold) + '.tif')
     write_TIFF_format(elevation_cohth, elevation_cohth_tiff)
     print("Pipeline [P4] complete")
 
 
 # Run the workflow
-# run_P1(
-#     file1=file_path_1, file2=file_path_2,
-#     aoi=args.aoi_path, polarization=args.polarization,
-#     dem=args.dem, out_dir=output_dir,
-#     ifg_squarepixel=args.ifg_squarepixel,
-#     ifg_cohwin_rg=args.ifg_cohwin_rg,
-#     ifg_cohwin_az=args.ifg_cohwin_az,
-#     multilooking=args.multilook_toggle,
-#     ml_rangelooks=args.multilook_range,
-#     goldsteinfiltering=args.goldstein_toggle,
-#     gpf_fftsize=args.gpf_fftsize,
-#     gpf_win=args.gpf_win,
-#     gpf_cohmask=args.gpf_cohmask,
-#     gpf_cohth=args.gpf_cohth,
-#     subsetting=args.subset_toggle,
-#     subset_buffer=args.aoi_buffer
-# )
-#
-# run_P3(
-#     out_dir=output_dir,
-#     tiles=args.snaphu_tiles,
-#     cost_mode=args.snaphu_costmode,
-#     tile_overlap_row=args.snaphu_tile_overlap_row,
-#     tile_overlap_col=args.snaphu_tile_overlap_col,
-#     subset=args.subset_toggle
-# )
+run_P1(
+    file1=file_path_1, file2=file_path_2,
+    aoi=args.aoi_path, polarization=args.polarization,
+    dem=args.dem, out_dir=output_dir,
+    ifg_squarepixel=args.ifg_squarepixel,
+    ifg_cohwin_rg=args.ifg_cohwin_rg,
+    ifg_cohwin_az=args.ifg_cohwin_az,
+    multilooking=args.multilook_toggle,
+    ml_rangelooks=args.multilook_range,
+    goldsteinfiltering=args.goldstein_toggle,
+    gpf_fftsize=args.gpf_fftsize,
+    gpf_win=args.gpf_win,
+    gpf_cohmask=args.gpf_cohmask,
+    gpf_cohth=args.gpf_cohth,
+    subsetting=args.subset_toggle,
+    subset_buffer=args.aoi_buffer
+)
+
+run_P3(
+    out_dir=output_dir,
+    tiles=args.snaphu_tiles,
+    cost_mode=args.snaphu_costmode,
+    tile_overlap_row=args.snaphu_tile_overlap_row,
+    tile_overlap_col=args.snaphu_tile_overlap_col,
+    subset=args.subset_toggle
+)
 
 run_P4(
     out_dir=output_dir,
