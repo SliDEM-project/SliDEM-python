@@ -3,7 +3,6 @@ FROM mundialis/esa-snap:ubuntu
 
 ## Move local packages to tmp file
 COPY setup/requirements.txt /tmp/base_requirements.txt
-# COPY setup/stsa/requirements.txt /tmp/stsa_requirements.txt
 
 # Update snap-tools
 # If not running locally GitHub Actions will take care of compiling,
@@ -83,6 +82,8 @@ WORKDIR ./xdem
 RUN conda env create -f dev-environment.yml
 SHELL ["conda", "run", "-n", "xdem-dev", "/bin/bash", "-c"]
 RUN pip install -e .
+RUN conda install -y -c conda-forge bmi-topography
+RUN conda install -y -c conda-forge python-dotenv
 RUN conda init bash
 
 WORKDIR ..
