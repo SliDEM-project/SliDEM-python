@@ -16,7 +16,6 @@ aoi_def = "Kleinarl"
 # set up requests to work with api
 orders_url = 'https://api.planet.com/compute/ops/orders/v2'
 
-# os.environ['PL_API_KEY']='22c7555380db430285fc246936510788'
 auth = HTTPBasicAuth(os.getenv('PL_API_KEY'), '')
 headers = {'content-type': 'application/json'}
 
