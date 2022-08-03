@@ -10,12 +10,7 @@
 # check how to do that here: https://stackoverflow.com/a/64771620/12118669
 
 import argparse
-from bmi_topography import Topography
 import os.path
-from dotenv import load_dotenv
-import geopandas as gpd
-import json
-from shapely.geometry import shape, GeometryCollection
 import xdem
 import geoutils as gu
 import numpy as np
@@ -24,9 +19,11 @@ import matplotlib.pyplot as plt
 # Arguments
 parser = argparse.ArgumentParser(
     description='''Perform an accuracy assessment of the S1-DEMs.
-    One can pass an external DEM for comparison or download locally
-    a subset of a global DEM through the OpenTopography API. 
-    Note that for the later you require to create a free account and API key.
+    Pass an external DEM for comparison. 
+    Use LULC (e.g. WorldCover) data to get binned statistics.
+    You can download subsets of external DEMs and WorldCover data
+    for your AOI through the OpenTopography API and AWS-S3 buckets
+    with the 3_1_aux_data_download.py. 
 ''',
     epilog='''
 Versions: 
@@ -58,7 +55,13 @@ parser.add_argument(
     help='''path to S1-based DEM to be assessed for errors.'''
 )
 parser.add_argument(
-    '--external_ref_dem',
+    '--no_data_value',
+    type=float,
+    default=-99999,
+    help='''Value to use for no data, defaults to -99999'''
+)
+parser.add_argument(
+    '--ref_dem_path',
     type=str,
     help='''path to external DEM to use for error assessment. 
     If you have already downloaded data previously from OpenTopography for 
@@ -66,7 +69,16 @@ parser.add_argument(
     and avoid re-fetching.'''
 )
 parser.add_argument(
-    '--external_ref_dem_name',
+    '--lulc_path',
+    type=str,
+    default=None,
+    help='''path to LULC rasterdataset to use for error assessment. 
+    If you have already downloaded WorldCover data for 
+    your area of interest, please add the path to the data here 
+    and avoid re-fetching.'''
+)
+parser.add_argument(
+    '--ref_dem_name',
     type=str,
     help='''shorter name for external DEM used. Used to determine output file names.'''
 )
@@ -77,42 +89,10 @@ parser.add_argument(
     This area will be used to download a subset of the selected OpenTopography DEM.'''
 )
 parser.add_argument(
-    '--ref_dem_download_dir',
-    type=str,
-    help='''relative path (refers to mounted volume) to the directory where'
-  the reference DEM for the study area should be downloaded.'''
-)
-parser.add_argument(
-    '--opentopoapikey',
-    type=str,
-    default=None,
-    help='''API key to download data from the OpenTopography API. 
-    Can also be saved to the .env file under OPENTOPOGRAPHY_API_KEY.
-    More information here: 
-    https://opentopography.org/blog/introducing-api-keys-access-opentopography-global-datasets'''
-)
-parser.add_argument(
-    '--ref_dem',
-    type=str,
-    default='NASADEM',
-    help='''string referring to which DEM to use for error assessment. 
-    Can refer to any of the options provided by the OpenTopography API 
-    (https://bmi-topography.readthedocs.io/en/latest/). 
-    But of course, make sure the data you use overlaps your study area.'''
-)
-parser.add_argument(
-    '--ref_dem_download',
-    type=bool,
-    default=False,
-    help='''Boolean to confirm actively for data download from the OpenTopography API.
-    If you already downloaded the reference DEM for your AOI please call it with the
-    external_dem argument instead of saturating the API.'''
-)
-parser.add_argument(
     '--elev_diff_min_max',
     type=float,
     default=20,
-    help='''To plot elevation differences,
+    help='''Absolute value to plot elevation differences,
      what should be the minimum and maximum elevation difference value? 
      Defaults to -20, +20.'''
 )
@@ -120,69 +100,24 @@ args = parser.parse_args()
 
 os.chdir('home/')
 
-if os.path.isfile('.env'):
-    load_dotenv('.env')
-    api_key = os.environ.get('OPENTOPOGRAPHY_API_KEY')
-else:
-    api_key = args.opentopoapikey
-
-# Download reference DEM data
-if args.ref_dem_download:
-    def read_aoi(aoi=args.aoi_path, buffer=0):
-        tempgeojson = os.path.join(args.output_dir, "temp_aoi.geojson")
-        aoidf = gpd.read_file(aoi)
-        if aoidf.crs != 'epsg:4326':
-            aoidf = aoidf.to_crs(4326)
-            aoidf.to_file(tempgeojson, driver="GeoJSON")
-            aoi_file = tempgeojson
-        else:
-            aoi_file = aoi
-        # Read aoi with shapely
-        with open(aoi_file) as f:
-            features = json.load(f)["features"]
-
-        if os.path.exists(tempgeojson):
-            os.remove(tempgeojson)
-
-        return GeometryCollection(
-            [shape(feature["geometry"]).buffer(buffer) for feature in features]
-        )
-
-
-    aoi_bound = read_aoi()
-
-    topo = Topography(
-        dem_type=args.ref_dem,
-        west=aoi_bound.bounds[0],  # minx
-        south=aoi_bound.bounds[1],  # miny
-        east=aoi_bound.bounds[2],  # maxx
-        north=aoi_bound.bounds[3],  # maxy
-        output_format="GTiff",
-        cache_dir=args.ref_dem_download_dir
-    )
-
-    fname = topo.fetch()
-    print(
-        'Reference DEM data (', args.ref_dem,
-        ') for your AOI was downloaded here:', fname
-    )
-
-    reference_dem_path = fname
-else:
-    reference_dem_path = args.external_ref_dem
-
 # Naming for files
-
-if args.external_ref_dem_name is None:
-    external_ref_dem_name = args.external_ref_dem.split('/', -1)[-1].replace('.tif', '')
+if args.ref_dem_name is None:
+    ref_dem_name = args.ref_dem_path.split('/', -1)[-1].replace('.tif', '')
 else:
-    external_ref_dem_name = args.external_ref_dem_name
+    ref_dem_name = args.ref_dem_name
 
 s1_dem_name = args.s1_dem_path.split('/', -1)[-1].replace('.tif', '')
+prefix = "error_" + ref_dem_name + "_S1_" + s1_dem_name
 
 # Error assessment with xdem
-reference_dem = xdem.DEM(reference_dem_path)
+reference_dem = xdem.DEM(args.ref_dem_path)
 s1_dem = xdem.DEM(args.s1_dem_path)
+if args.lulc_path is not None:
+    lulc = gu.Raster(args.lulc_path)
+    lulc_resampled = lulc.reproject(s1_dem, resampling="bilinear")
+
+# Assign no data value if needed
+s1_dem.set_ndv(args.no_data_value)
 
 # Reproject reference DEM to S1 DEM
 reference_dem = reference_dem.reproject(s1_dem)
@@ -191,13 +126,13 @@ reference_dem = reference_dem.reproject(s1_dem)
 dh = reference_dem - s1_dem
 dh_file = os.path.join(
     args.output_dir,
-    "elevation_diff_" + external_ref_dem_name +
-    "_S1_" + s1_dem_name + ".tif"
+    prefix + ".tif"
 )
 dh.save(dh_file)
 
 # Unstable areas
 unstable = gu.Vector(args.unstable_area_path)
+unstable = gu.Vector(unstable.ds.to_crs(s1_dem.crs))
 
 # Plot
 plt.figure(figsize=(8, 5))
@@ -222,8 +157,7 @@ plt.legend(loc='lower right')
 plt.savefig(
     os.path.join(
         args.output_dir,
-        "elevation_diff_" + external_ref_dem_name +
-        "_S1_" + s1_dem_name + ".png"
+        prefix + ".png"
     ),
     dpi=300, bbox_inches='tight'
 )
@@ -234,21 +168,39 @@ mask = ~unstable.create_mask(dh)
 # Keep only stable terrain data
 dh.set_mask(np.invert(mask))
 
-# Compute slope and curvature for reference DEM in stable areas
-slope, planc, profc, aspect = \
+# Compute slope and aspect for reference DEM in stable areas
+slope, aspect = \
     xdem.terrain.get_terrain_attribute(
         dem=reference_dem.data,
         resolution=dh.res,
-        attribute=['slope', 'planform_curvature', 'profile_curvature', 'aspect']
+        attribute=['slope', 'aspect']
     )
 
-# Estimate the measurement error by bin of slope, using the NMAD as robust estimator
+# Estimate the measurement error by bin of slope,
+# using a desired error measure as robust estimator
+# defaults to count and nmad
+variables = [slope.ravel(), aspect.ravel()]
+variables_names = ['slope', 'aspect']
+variables_bins = [30, 30]
+if args.lulc_path is not None:
+    variables.append(lulc_resampled.data.ravel())
+    variables_names.append('lulc')
+    variables_bins.append(len(np.unique(lulc_resampled.data.ravel())))
 df_ns = xdem.spatialstats.nd_binning(
-    dh.data.ravel(), list_var=[slope.ravel(), aspect.ravel()],
-    list_var_names=['slope', 'aspect'],
-    statistics=['count', xdem.spatialstats.nmad], list_var_bins=30
+    dh.data.ravel(),
+    list_var=variables,
+    list_var_names=variables_names,
+    statistics=['count', xdem.spatialstats.nmad],
+    list_var_bins=variables_bins
 )
 
+df_ns[df_ns.nd == 1].to_csv(
+    os.path.join(
+        args.output_dir,
+        'error_measures_' + ref_dem_name + "_binned_stats.csv"
+    ),
+    index=False
+)
 xdem.spatialstats.plot_1d_binning(
     df_ns, 'slope', 'nmad',
     'Slope (degrees) calculated from Reference DEM',
@@ -258,8 +210,7 @@ xdem.spatialstats.plot_1d_binning(
 plt.savefig(
     os.path.join(
         args.output_dir,
-        "elevation_diff_" + external_ref_dem_name +
-        "_S1_" + s1_dem_name + "_binned_slope.png"
+        prefix + "_nmad_binned_slope.png"
     ),
     dpi=300, bbox_inches='tight'
 )
@@ -273,26 +224,40 @@ xdem.spatialstats.plot_1d_binning(
 plt.savefig(
     os.path.join(
         args.output_dir,
-        "elevation_diff_" + external_ref_dem_name +
-        "_S1_" + s1_dem_name + "_binned_aspect.png"
+        prefix + "_nmad_binned_aspect.png"
     ),
     dpi=300, bbox_inches='tight'
 )
 
+if args.lulc_path is not None:
+    xdem.spatialstats.plot_1d_binning(
+        df_ns, 'lulc', 'nmad',
+        'LULC',
+        'Elevation error: NMAD (m)'
+    )
+
+    plt.savefig(
+        os.path.join(
+            args.output_dir,
+            prefix + "_nmad_binned_lulc.png"
+        ),
+        dpi=300, bbox_inches='tight'
+    )
 # Compute measures
 # Write user settings to log file
-file = open(os.path.join(args.output_dir, 'error_measures_' + external_ref_dem_name + '.txt'), 'w')
+file = open(os.path.join(args.output_dir, 'error_measures_' + ref_dem_name + '.txt'), 'w')
 file.write(
     'S1 DEM: ' + args.s1_dem_path + '\n' +
-    'Reference DEM: ' + args.external_ref_dem + '\n' +
+    'Reference DEM: ' + args.ref_dem_path + '\n' +
+    'LULC: ' + (args.lulc_path if args.lulc_path else "Not used") + '\n' +
     '\nReference DEM - S1 DEM:\n' +
-    'Error measures \n================= \n'+
-    'Min: {:.2f} meters.'.format(np.nanmin(dh.data)) + '\n' +
-    'Max: {:.2f} meters.'.format(np.nanmax(dh.data)) + '\n' +
-    'Mean: {:.2f} meters.'.format(np.nanmean(dh.data)) + '\n' +
-    'STD: {:.2f} meters.'.format(np.nanstd(dh.data)) + '\n' +
-    'MAE: {:.2f} meters.'.format(np.nanmean(np.abs(dh.data))) + '\n' +
-    'RMSE: {:.2f} meters.'.format(np.sqrt((dh.data**2).mean())) + '\n' +
-    'NMAD: {:.2f} meters.'.format(xdem.spatialstats.nmad(dh.data)) + '\n'
+    'Error measures \n' +
+    'Min: {:.2f} m'.format(np.nanmin(dh.data)) + '\n' +
+    'Max: {:.2f} m'.format(np.nanmax(dh.data)) + '\n' +
+    'Mean: {:.2f} m'.format(np.nanmean(dh.data)) + '\n' +
+    'STD: {:.2f} m'.format(np.nanstd(dh.data)) + '\n' +
+    'MAE: {:.2f} m'.format(np.nanmean(np.abs(dh.data))) + '\n' +
+    'RMSE: {:.2f} m'.format(np.sqrt((dh.data**2).mean())) + '\n' +
+    'NMAD: {:.2f} m'.format(xdem.spatialstats.nmad(dh.data)) + '\n'
 )
 file.close
