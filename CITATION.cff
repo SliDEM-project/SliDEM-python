@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Abad"
+  given-names: "Lorena"
+  orcid: "https://orcid.org/0000-0003-0554-734X"
+- family-names: "Hölbling"
+  given-names: "Daniel"
+  orcid: "https://orcid.org/0000-0001-9282-8072"
+- family-names: "Dabiri"
+  given-names: "Zahra"
+  orcid: "https://orcid.org/0000-0003-1015-1657"
+- family-names: "Robson"
+  given-names: "Benjamin Aubrey"
+  orcid: "https://orcid.org/0000-0002-4987-7378"
+title: "An open-source-based workflow for DEM generation from Sentinel-1 for landslide volume estimation"
+doi: 10.5194/isprs-archives-XLVIII-4-W1-2022-5-2022
+date-released: 2022-08-05
+url: "https://www.int-arch-photogramm-remote-sens-spatial-inf-sci.net/XLVIII-4-W1-2022/5/2022/"
+preferred-citation:
+  type: article
+  - family-names: "Abad"
+    given-names: "Lorena"
+    orcid: "https://orcid.org/0000-0003-0554-734X"
+  - family-names: "Hölbling"
+    given-names: "Daniel"
+    orcid: "https://orcid.org/0000-0001-9282-8072"
+  - family-names: "Dabiri"
+    given-names: "Zahra"
+    orcid: "https://orcid.org/0000-0003-1015-1657"
+  - family-names: "Robson"
+    given-names: "Benjamin Aubrey"
+    orcid: "https://orcid.org/0000-0002-4987-7378"
+  doi: "https://doi.org/10.5194/isprs-archives-XLVIII-4-W1-2022-5-2022"
+  journal: "The International Archives of the Photogrammetry, Remote Sensing and Spatial Information Sciences"
+  title: "An open-source-based workflow for DEM generation from Sentinel-1 for landslide volume estimation"
+  volume: XLVIII-4/W1-2022
+  year: 2022
