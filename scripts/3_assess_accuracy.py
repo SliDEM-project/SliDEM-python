@@ -1,14 +1,3 @@
-# To download SRTM data as a base for an accuracy assessment:
-# https://github.com/bopen/elevation
-#
-# Find ways also for copernicus DEM, the idea would be that
-# if the user used one for generating the DEM then the other
-# one should be used for accuracy assessment.
-#
-# External DEMs should also be supported
-# Most likely this script will need to run with a conda environment
-# check how to do that here: https://stackoverflow.com/a/64771620/12118669
-
 import argparse
 import os.path
 import xdem
@@ -55,27 +44,34 @@ parser.add_argument(
     help='''path to S1-based DEM to be assessed for errors.'''
 )
 parser.add_argument(
-    '--no_data_value',
-    type=float,
-    default=-99999,
-    help='''Value to use for no data, defaults to -99999'''
-)
-parser.add_argument(
     '--ref_dem_path',
     type=str,
-    help='''path to external DEM to use for error assessment. 
-    If you have already downloaded data previously from OpenTopography for 
-    your area of interest, please add the path to the data here 
-    and avoid re-fetching.'''
+    help='''path to external DEM to use for error assessment 
+    (and vertical co-registration if coregister=True). 
+    Use 3_1_aux_data_download.py to download elevation
+    data from OpenTopography for your area of interest.'''
+)
+parser.add_argument(
+    '--coregister',
+    type=bool,
+    default=False,
+    help='''Boolean to define if the S1 DEM should be coregistered
+    vertically to the reference DEM. Defaults to False'''
+)
+parser.add_argument(
+    '--coregistration_type',
+    nargs="+",
+    default=["NuthKaab", "Deramp_d1"],
+    help='''List of xdem.coreg functions to set-up a coregistration algorithm
+    Defaults to Nuth-Kaab and Deramping with degree 1'''
 )
 parser.add_argument(
     '--lulc_path',
     type=str,
     default=None,
-    help='''path to LULC rasterdataset to use for error assessment. 
-    If you have already downloaded WorldCover data for 
-    your area of interest, please add the path to the data here 
-    and avoid re-fetching.'''
+    help='''path to LULC raster dataset to use for error assessment. 
+    Use 3_1_aux_data_download.py to download WorldCover LULC data 
+    from the AWS S3 Bucket for your area of interest.'''
 )
 parser.add_argument(
     '--ref_dem_name',
@@ -89,6 +85,12 @@ parser.add_argument(
     This area will be used to download a subset of the selected OpenTopography DEM.'''
 )
 parser.add_argument(
+    '--no_data_value',
+    type=float,
+    default=-99999,
+    help='''Value to use for no data, defaults to -99999'''
+)
+parser.add_argument(
     '--elev_diff_min_max',
     type=float,
     default=20,
@@ -100,6 +102,10 @@ args = parser.parse_args()
 
 os.chdir('home/')
 
+# Create output_dir if not existing
+if not os.path.exists(args.output_dir):
+    os.mkdir(args.output_dir)
+
 # Naming for files
 if args.ref_dem_name is None:
     ref_dem_name = args.ref_dem_path.split('/', -1)[-1].replace('.tif', '')
@@ -107,7 +113,6 @@ else:
     ref_dem_name = args.ref_dem_name
 
 s1_dem_name = args.s1_dem_path.split('/', -1)[-1].replace('.tif', '')
-prefix = "error_" + ref_dem_name + "_S1_" + s1_dem_name
 
 # Error assessment with xdem
 reference_dem = xdem.DEM(args.ref_dem_path)
@@ -122,142 +127,224 @@ s1_dem.set_ndv(args.no_data_value)
 # Reproject reference DEM to S1 DEM
 reference_dem = reference_dem.reproject(s1_dem)
 
-# Calculate DEM error (dh)
-dh = reference_dem - s1_dem
-dh_file = os.path.join(
-    args.output_dir,
-    prefix + ".tif"
-)
-dh.save(dh_file)
-
 # Unstable areas
 unstable = gu.Vector(args.unstable_area_path)
 unstable = gu.Vector(unstable.ds.to_crs(s1_dem.crs))
 
-# Plot
-plt.figure(figsize=(8, 5))
-plt_extent = [
-    dh.bounds.left,
-    dh.bounds.right,
-    dh.bounds.bottom,
-    dh.bounds.top,
-]
-ax = plt.gca()
-unstable.ds.plot(ax=ax, fc='none', ec='tab:gray')
-ax.plot([], [], color='tab:gray', label='Unstable areas')
-plt.imshow(
-    dh.data.squeeze(), cmap="RdYlBu",
-    vmin=-args.elev_diff_min_max,
-    vmax=args.elev_diff_min_max,
-    extent=plt_extent
+prefix_before = "error_" + ref_dem_name + "_S1_" + s1_dem_name
+
+# Write user settings to log file
+file = open(os.path.join(args.output_dir, 'error_'
+                         + ref_dem_name + '.txt'), 'w')
+file.write(
+    'Error measurements' + '\n\n\n'
 )
-cbar = plt.colorbar()
-cbar.set_label('Elevation difference (m)\nReference - S1-DEM')
-plt.legend(loc='lower right')
-plt.savefig(
-    os.path.join(
+file.close
+
+
+# Function to compute errors
+def compute_errors(src, ref, prefix, coreg_filename=None):
+    # Calculate DEM error (dh)
+    dh = ref - src
+    dh_file = os.path.join(
         args.output_dir,
-        prefix + ".png"
-    ),
-    dpi=300, bbox_inches='tight'
-)
+        prefix + ".tif"
+    )
+    dh.save(dh_file)
 
-dh = gu.Raster(dh_file)
-mask = ~unstable.create_mask(dh)
-
-# Keep only stable terrain data
-dh.set_mask(np.invert(mask))
-
-# Compute slope and aspect for reference DEM in stable areas
-slope, aspect = \
-    xdem.terrain.get_terrain_attribute(
-        dem=reference_dem.data,
-        resolution=dh.res,
-        attribute=['slope', 'aspect']
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt_extent = [
+        dh.bounds.left,
+        dh.bounds.right,
+        dh.bounds.bottom,
+        dh.bounds.top,
+    ]
+    ax = plt.gca()
+    unstable.ds.plot(ax=ax, fc='none', ec='tab:gray')
+    ax.plot([], [], color='tab:gray', label='Unstable areas')
+    plt.imshow(
+        dh.data.squeeze(), cmap="RdYlBu",
+        vmin=-args.elev_diff_min_max,
+        vmax=args.elev_diff_min_max,
+        extent=plt_extent
+    )
+    cbar = plt.colorbar()
+    cbar.set_label('Elevation difference (m)\nReference - S1-DEM')
+    plt.legend(loc='lower right')
+    plt.savefig(
+        os.path.join(
+            args.output_dir,
+            prefix + ".png"
+        ),
+        dpi=300, bbox_inches='tight'
     )
 
-# Estimate the measurement error by bin of slope,
-# using a desired error measure as robust estimator
-# defaults to count and nmad
-variables = [slope.ravel(), aspect.ravel()]
-variables_names = ['slope', 'aspect']
-variables_bins = [30, 30]
-if args.lulc_path is not None:
-    variables.append(lulc_resampled.data.ravel())
-    variables_names.append('lulc')
-    variables_bins.append(len(np.unique(lulc_resampled.data.ravel())))
-df_ns = xdem.spatialstats.nd_binning(
-    dh.data.ravel(),
-    list_var=variables,
-    list_var_names=variables_names,
-    statistics=['count', xdem.spatialstats.nmad],
-    list_var_bins=variables_bins
-)
+    dh = gu.Raster(dh_file)
+    mask = ~unstable.create_mask(dh)
 
-df_ns[df_ns.nd == 1].to_csv(
-    os.path.join(
-        args.output_dir,
-        'error_measures_' + ref_dem_name + "_binned_stats.csv"
-    ),
-    index=False
-)
-xdem.spatialstats.plot_1d_binning(
-    df_ns, 'slope', 'nmad',
-    'Slope (degrees) calculated from Reference DEM',
-    'Elevation error: NMAD (m)'
-)
+    # Keep only stable terrain data
+    dh.set_mask(np.invert(mask))
 
-plt.savefig(
-    os.path.join(
-        args.output_dir,
-        prefix + "_nmad_binned_slope.png"
-    ),
-    dpi=300, bbox_inches='tight'
-)
+    # Compute slope and aspect for reference DEM
+    slope, aspect = \
+        xdem.terrain.get_terrain_attribute(
+            dem=ref.data,
+            resolution=dh.res,
+            attribute=['slope', 'aspect']
+        )
 
-xdem.spatialstats.plot_1d_binning(
-    df_ns, 'aspect', 'nmad',
-    'Aspect (degrees) calculated from Reference DEM',
-    'Elevation error: NMAD (m)'
-)
+    # Compute measures
+    # Write error measures to log file
+    file = open(os.path.join(args.output_dir, 'error_' +
+                             ref_dem_name + '.txt'), 'a')
+    file.write(
+        'S1 DEM: ' + args.s1_dem_path + '\n' +
+        'Reference DEM: ' + args.ref_dem_path + '\n' +
+        'LULC: ' + (args.lulc_path if args.lulc_path else "Not used") + '\n'
+        '\n\nReference DEM - S1 DEM:\n' +
+        'Coregistered file: ' +
+        (coreg_filename if coreg_filename else "Before coregistration") + '\n' +
+        'Min: {:.2f} m'.format(np.nanmin(dh.data)) + '\n' +
+        'Max: {:.2f} m'.format(np.nanmax(dh.data)) + '\n' +
+        'Mean: {:.2f} m'.format(np.nanmean(dh.data)) + '\n' +
+        'STD: {:.2f} m'.format(np.nanstd(dh.data)) + '\n' +
+        'MAE: {:.2f} m'.format(np.nanmean(np.abs(dh.data))) + '\n' +
+        'RMSE: {:.2f} m'.format(np.sqrt((dh.data ** 2).mean())) + '\n' +
+        'NMAD: {:.2f} m'.format(xdem.spatialstats.nmad(dh.data)) + '\n\n\n'
+    )
+    file.close
 
-plt.savefig(
-    os.path.join(
-        args.output_dir,
-        prefix + "_nmad_binned_aspect.png"
-    ),
-    dpi=300, bbox_inches='tight'
-)
+    # Estimate the measurement error by bin of slope,
+    # using a desired error measure as robust estimator
+    # defaults to count and nmad
+    variables = [slope.ravel(), aspect.ravel()]
+    variables_names = ['slope', 'aspect']
+    variables_bins = [30, 30]
+    if args.lulc_path is not None:
+        variables.append(lulc_resampled.data.ravel())
+        variables_names.append('lulc')
+        variables_bins.append(len(np.unique(lulc_resampled.data.ravel())))
+    df_ns = xdem.spatialstats.nd_binning(
+        dh.data.ravel(),
+        list_var=variables,
+        list_var_names=variables_names,
+        statistics=['count', xdem.spatialstats.nmad],
+        list_var_bins=variables_bins
+    )
 
-if args.lulc_path is not None:
+    df_ns[df_ns.nd == 1].to_csv(
+        os.path.join(
+            args.output_dir,
+            'error_' + prefix + "_binned_stats.csv"
+        ),
+        index=False
+    )
     xdem.spatialstats.plot_1d_binning(
-        df_ns, 'lulc', 'nmad',
-        'LULC',
+        df_ns, 'slope', 'nmad',
+        'Slope (degrees) calculated from Reference DEM',
         'Elevation error: NMAD (m)'
     )
 
     plt.savefig(
         os.path.join(
             args.output_dir,
-            prefix + "_nmad_binned_lulc.png"
+            prefix + "_nmad_binned_slope.png"
         ),
         dpi=300, bbox_inches='tight'
     )
-# Compute measures
-# Write user settings to log file
-file = open(os.path.join(args.output_dir, 'error_measures_' + ref_dem_name + '.txt'), 'w')
-file.write(
-    'S1 DEM: ' + args.s1_dem_path + '\n' +
-    'Reference DEM: ' + args.ref_dem_path + '\n' +
-    'LULC: ' + (args.lulc_path if args.lulc_path else "Not used") + '\n' +
-    '\nReference DEM - S1 DEM:\n' +
-    'Error measures \n' +
-    'Min: {:.2f} m'.format(np.nanmin(dh.data)) + '\n' +
-    'Max: {:.2f} m'.format(np.nanmax(dh.data)) + '\n' +
-    'Mean: {:.2f} m'.format(np.nanmean(dh.data)) + '\n' +
-    'STD: {:.2f} m'.format(np.nanstd(dh.data)) + '\n' +
-    'MAE: {:.2f} m'.format(np.nanmean(np.abs(dh.data))) + '\n' +
-    'RMSE: {:.2f} m'.format(np.sqrt((dh.data**2).mean())) + '\n' +
-    'NMAD: {:.2f} m'.format(xdem.spatialstats.nmad(dh.data)) + '\n'
-)
-file.close
+
+    xdem.spatialstats.plot_1d_binning(
+        df_ns, 'aspect', 'nmad',
+        'Aspect (degrees) calculated from Reference DEM',
+        'Elevation error: NMAD (m)'
+    )
+
+    plt.savefig(
+        os.path.join(
+            args.output_dir,
+            prefix + "_nmad_binned_aspect.png"
+        ),
+        dpi=300, bbox_inches='tight'
+    )
+
+    if args.lulc_path is not None:
+        xdem.spatialstats.plot_1d_binning(
+            df_ns, 'lulc', 'nmad',
+            'LULC',
+            'Elevation error: NMAD (m)'
+        )
+
+        plt.savefig(
+            os.path.join(
+                args.output_dir,
+                prefix + "_nmad_binned_lulc.png"
+            ),
+            dpi=300, bbox_inches='tight'
+        )
+
+
+def coregister_func(coregister_name):
+    match coregister_name:
+        case "NuthKaab":
+            return xdem.coreg.NuthKaab()
+        case "Deramp_d1":
+            return xdem.coreg.Deramp(degree=1)
+        case "Deramp_d2":
+            return xdem.coreg.Deramp(degree=2)
+        case "Deramp_d3":
+            return xdem.coreg.Deramp(degree=3)
+        case "ICP":
+            return xdem.coreg.ICP()
+        case "BiasCorr":
+            return xdem.coreg.BiasCorr()
+        case "NuthKaab_Deramp_d1":
+            return xdem.coreg.NuthKaab() + xdem.coreg.Deramp(degree=1)
+        case "ICP_NuthKaab":
+            return xdem.coreg.ICP() + xdem.coreg.NuthKaab()
+        case "BiasCorr_ICP_NuthKaab":
+            return xdem.coreg.BiasCorr() + xdem.coreg.ICP() + xdem.coreg.NuthKaab()
+
+
+def coregister(src, ref, coreg_type):
+    coregister_function = coregister_func(coreg_type)
+    unstable_mask = ~unstable.create_mask(ref)
+    coregister_function.fit(
+        ref.data, src.data,
+        inlier_mask=unstable_mask,
+        transform=ref.transform
+    )
+    out = xdem.DEM.from_array(
+        coregister_function.apply(src.data, transform=src.transform),
+        transform=src.transform,
+        crs=src.crs,
+        nodata=args.no_data_value
+    )
+    prefix_file = s1_dem_name + '_' + ref_dem_name + '_coreg_' + coreg_type
+    prefix_after = "error_" + ref_dem_name + "_S1_" + s1_dem_name + '_coreg_' + coreg_type
+    filename = os.path.join(
+        args.output_dir,
+        prefix_file + '.tif'
+    )
+    out.save(filename)
+    s1_dem_coregistered = xdem.DEM(filename)
+    # Assign no data value if needed
+    s1_dem_coregistered.set_ndv(args.no_data_value)
+    compute_errors(
+        s1_dem_coregistered,
+        ref,
+        prefix_after,
+        coreg_filename=filename
+    )
+    return out
+
+
+# Compute errors before coregistration
+compute_errors(s1_dem, reference_dem, prefix_before)
+
+# Coregister and compute errors
+if args.coregister:
+    coreg_list = []
+    for c in args.coregistration_type:
+        s1_dem_coreg = coregister(s1_dem, reference_dem, c)
+        coreg_list.append(s1_dem_coreg)
