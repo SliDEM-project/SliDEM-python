@@ -735,7 +735,7 @@ def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
-        '\nUSER-SETTINGS FOR PIPELINE 2:\n' +
+        '\nUSER-SETTINGS FOR PIPELINE 1 (cont.):\n' +
         'Interferogram settings:'
         '- Square pixel: ' + str(ifg_squarepixel) + '\n' +
         '- Coherence range window size: ' + str(ifg_cohwin_rg) + '\n' +
@@ -772,7 +772,7 @@ def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
         if lastBurstIndex_1 - firstBurstIndex_1 > 1 or \
                 lastBurstIndex_2 - firstBurstIndex_2 > 1:
             product = enhanced_spectral_diversity(product)
-        out_filename = os.path.join(out_dir, 'out_P1_' + iw)
+        out_filename = os.path.join(out_dir, 'out_' + iw)
         write_BEAM_DIMAP_format(product, out_filename)
 
         # takes result from previous pipeline
@@ -810,11 +810,11 @@ def run_P1_interferogram(out_dir, file1, file2, polarization, aoi=None,
         product = goldstein_phase_filter(product,
                                          gpf_fftsize, gpf_win,
                                          gpf_cohmask, gpf_cohth)
-    out_filename = os.path.join(out_dir, 'out_P2')
+    out_filename = os.path.join(out_dir, 'out_P1')
     write_BEAM_DIMAP_format(product, out_filename)
     if subsetting:
         product_ss = subset(product, aoi, buffer=subset_buffer)
-        out_filename = os.path.join(out_dir, 'out_P2_subset')
+        out_filename = os.path.join(out_dir, 'out_P1_subset')
         write_BEAM_DIMAP_format(product_ss, out_filename)
     print("Pipeline [P1] for interferogam creation complete")
 
@@ -825,23 +825,23 @@ def run_P2_unwrap(out_dir, tiles, cost_mode, tile_overlap_row,
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
-        '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
-        'Tiles: ' + str(tiles) + '\n'
-                                 'Tiles overlap: row ' + str(tile_overlap_row) +
-        ', col ' + str(tile_overlap_row) + '\n'
-                                           'Cost mode: ' + cost_mode + '\n'
+        '\nUSER-SETTINGS FOR PIPELINE 2:\n' +
+        'Tiles: ' + str(tiles) + '\n' +
+        'Tiles overlap: row ' + str(tile_overlap_row) +
+        ', col ' + str(tile_overlap_row) + '\n' +
+        'Cost mode: ' + cost_mode + '\n'
     )
     file.close
 
     if subset:
         # takes subset result from previous pipeline
-        in_filename = os.path.join(out_dir, 'out_P2_subset')
+        in_filename = os.path.join(out_dir, 'out_P1_subset')
         product = read(in_filename + ".dim")  # reads .dim
     else:
         # takes result from previous pipeline
-        in_filename = os.path.join(out_dir, 'out_P2')
+        in_filename = os.path.join(out_dir, 'out_P1')
         product = read(in_filename + ".dim")  # reads .dim
-    out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
+    out_dir_snaphu = os.path.join(output_dir, "out_P2_snaphu")
     snaphu_export(product, out_dir_snaphu, tiles, cost_mode,
                   tile_overlap_row, tile_overlap_col)
     snaphu_unwrapping(out_dir_snaphu)
@@ -854,23 +854,22 @@ def run_P3_elevation(out_dir, dem=None, subset=None, proj=None,
     # Write user settings to log file
     file = open(os.path.join(out_dir, 'log.txt'), 'a')
     file.write(
-        '\nUSER-SETTINGS FOR PIPELINE 4:\n' +
-        'Pixel size: ' + str(pixel_size) + '\n'
-                                           'Coherence threshold: ' + str(coherence_threshold) + '\n'
-                                                                                                'No data value: ' + str(
-            nodataval) + '\n'
+        '\nUSER-SETTINGS FOR PIPELINE 3:\n' +
+        'Pixel size: ' + str(pixel_size) + '\n' +
+        'Coherence threshold: ' + str(coherence_threshold) + '\n' +
+        'No data value: ' + str(nodataval) + '\n'
     )
     file.close
     if subset:
         #  takes subset result from previous pipeline
-        in_filename = os.path.join(out_dir, 'out_P2_subset')
+        in_filename = os.path.join(out_dir, 'out_P1_subset')
         product = read(in_filename + ".dim")  # reads .dim
     else:
         # takes result from previous pipeline
-        in_filename = os.path.join(out_dir, 'out_P2')
+        in_filename = os.path.join(out_dir, 'out_P1')
         product = read(in_filename + ".dim")  # reads .dim
 
-    out_dir_snaphu = os.path.join(output_dir, "out_P3_snaphu")
+    out_dir_snaphu = os.path.join(output_dir, "out_P2_snaphu")
     unwrapped_fn = os.path.join(out_dir_snaphu, 'unwrapped')
     unwrapped = read(unwrapped_fn + ".dim")
     product_unwrapped = snaphu_import(product, unwrapped)
@@ -890,7 +889,7 @@ def run_P3_elevation(out_dir, dem=None, subset=None, proj=None,
     product_comb_tc_filtered = collocate(product_comb_tc, elev_filter)
     bands_comb_tc_filtered = list(product_comb_tc_filtered.getBandNames())
     # Save to BEAM-DIMAP
-    out_filename = os.path.join(out_dir, 'out_P4')
+    out_filename = os.path.join(out_dir, 'out_P3')
     write_BEAM_DIMAP_format(product_comb_tc_filtered, out_filename)
     # Save each band to a TIFF
     print(bands_comb_tc_filtered[0])
