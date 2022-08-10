@@ -1,9 +1,11 @@
 import argparse
 import os.path
 import xdem
+import csv
 import geoutils as gu
 import numpy as np
 import matplotlib.pyplot as plt
+import scicomap as sc
 
 # Arguments
 parser = argparse.ArgumentParser(
@@ -32,9 +34,10 @@ parser.add_argument(
 parser.add_argument(
     '--unstable_area_path',
     type=str,
-    help='''path to GeoJSON file (WGS84 - EPSG:4326) with the outline for unstable areas
-    (e.g. mass movement areas). This can include any other area that should be 
-    ignored during accuracy assessment (e.g. water areas, dense vegetation, etc.).
+    help='''path to GeoJSON file (WGS84 - EPSG:4326) 
+    with the outline for unstable areas (e.g. mass movement areas). 
+    This can include any other area that should be ignored during 
+    accuracy assessment (e.g. water areas, dense vegetation, etc.).
     If absent then the whole AOI is used for error analysis.'''
 )
 parser.add_argument(
@@ -58,11 +61,11 @@ parser.add_argument(
     vertically to the reference DEM'''
 )
 parser.add_argument(
-    '--coregistration_type',
+    '--coregistration_method',
     nargs="+",
     default=["NuthKaab", "Deramp_d1"],
     help='''List of xdem.coreg functions to set-up a coregistration algorithm
-    Defaults to Nuth-Kaab and Deramping with degree 1'''
+    Defaults to Nuth-Kaab (NuthKaab) and Deramping with degree 1 (Deramp_d1)'''
 )
 parser.add_argument(
     '--lulc_path',
@@ -132,13 +135,24 @@ unstable = gu.Vector(unstable.ds.to_crs(s1_dem.crs))
 
 prefix_before = "error_" + ref_dem_name + "_S1_" + s1_dem_name
 
-# Write user settings to log file
-file = open(os.path.join(args.output_dir, 'error_'
-                         + ref_dem_name + '.txt'), 'w')
-file.write(
-    'Error measurements' + '\n\n\n'
+# Write error measurements to CSV file
+header = [
+    's1_dem', 'ref_dem',
+    'lulc', 's1_dem_coreg',
+    'min_error', 'max_error', 'mean_error',
+    'std_error', 'mae', 'rmse', 'nmad'
+]
+csv_file = os.path.join(
+    args.output_dir,
+    "error_S1_" + s1_dem_name + '.csv'
 )
-file.close
+
+if not os.path.exists(csv_file):
+    with open(csv_file, 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+
+        # write the header
+        writer.writerow(header)
 
 
 # Function to compute errors
@@ -151,32 +165,47 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     )
     dh.save(dh_file)
 
+    dem_ls = [ref, src, dh]
     # Plot
-    plt.figure(figsize=(8, 5))
+    plt.figure(figsize=(20, 5), dpi=300.0, tight_layout=True)
     plt_extent = [
         dh.bounds.left,
         dh.bounds.right,
         dh.bounds.bottom,
         dh.bounds.top,
     ]
-    ax = plt.gca()
-    unstable.ds.plot(ax=ax, fc='none', ec='tab:gray')
-    ax.plot([], [], color='tab:gray', label='Unstable areas')
-    plt.imshow(
-        dh.data.squeeze(), cmap="RdYlBu",
-        vmin=-args.elev_diff_min_max,
-        vmax=args.elev_diff_min_max,
-        extent=plt_extent
-    )
-    cbar = plt.colorbar()
-    cbar.set_label('Elevation difference (m)\nReference - S1-DEM')
-    plt.legend(loc='lower right')
+    cmaps = ['viridis', 'viridis', sc.ScicoDiverging(cmap='vik').get_mpl_color_map()]
+    vlims = [(None, None) for i in range(3)]
+    vlims[0] = [np.nanmin(ref.data), np.nanmax(ref.data)]
+    vlims[1] = vlims[0]
+    vlims[2] = [-args.elev_diff_min_max, args.elev_diff_min_max]
+    labels = [
+        'Reference DEM | Elevation (m)',
+        'S1 DEM | Elevation (m)',
+        'Reference - S1-DEM | Elevation difference (m)'
+    ]
+    for i in range(3):
+        plt.subplot(1, 3, i + 1)
+        ax = plt.gca()
+        unstable.ds.plot(ax=ax, fc='none', ec='tab:magenta')
+        ax.plot([], [], color='tab:magenta', label='Unstable areas')
+        plt.imshow(
+            dem_ls[i].data.squeeze(),
+            cmap=cmaps[i],
+            extent=plt_extent,
+            vmin=vlims[i][0], vmax=vlims[i][1]
+        )
+        cbar = plt.colorbar()
+        cbar.set_label(labels[i])
+        plt.xticks([])
+        plt.yticks([])
+        plt.legend(loc='lower right')
+
     plt.savefig(
         os.path.join(
             args.output_dir,
             prefix + ".png"
-        ),
-        dpi=300, bbox_inches='tight'
+        )
     )
 
     dh = gu.Raster(dh_file)
@@ -185,39 +214,86 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     # Keep only stable terrain data
     dh.set_mask(np.invert(mask))
 
-    # Compute slope and aspect for reference DEM
-    slope, aspect = \
-        xdem.terrain.get_terrain_attribute(
+    # Compute terrain attributes for reference DEM
+    attr_list = ["hillshade", "slope", "aspect", "curvature",
+                 "terrain_ruggedness_index", "rugosity"]
+    attributes_ref_dem = xdem.terrain.get_terrain_attribute(
             dem=ref.data,
             resolution=dh.res,
-            attribute=['slope', 'aspect']
+            attribute=attr_list
+        )
+    attributes_src_dem = xdem.terrain.get_terrain_attribute(
+            dem=src.data,
+            resolution=dh.res,
+            attribute=attr_list
         )
 
-    # Compute measures
-    # Write error measures to log file
-    file = open(os.path.join(args.output_dir, 'error_' +
-                             ref_dem_name + '.txt'), 'a')
-    file.write(
-        'S1 DEM: ' + args.s1_dem_path + '\n' +
-        'Reference DEM: ' + args.ref_dem_path + '\n' +
-        'LULC: ' + (args.lulc_path if args.lulc_path else "Not used") + '\n'
-        '\n\nReference DEM - S1 DEM:\n' +
-        'Coregistered file: ' +
-        (coreg_filename if coreg_filename else "Before coregistration") + '\n' +
-        'Min: {:.2f} m'.format(np.nanmin(dh.data)) + '\n' +
-        'Max: {:.2f} m'.format(np.nanmax(dh.data)) + '\n' +
-        'Mean: {:.2f} m'.format(np.nanmean(dh.data)) + '\n' +
-        'STD: {:.2f} m'.format(np.nanstd(dh.data)) + '\n' +
-        'MAE: {:.2f} m'.format(np.nanmean(np.abs(dh.data))) + '\n' +
-        'RMSE: {:.2f} m'.format(np.sqrt((dh.data ** 2).mean())) + '\n' +
-        'NMAD: {:.2f} m'.format(xdem.spatialstats.nmad(dh.data)) + '\n\n\n'
+    # Plot attributes for ref and src
+    def plot_attr(dem, attributes):
+        plt.figure(figsize=(8.2, 7), dpi=300.0, tight_layout=True)
+
+        plt_extent = [dem.bounds.left, dem.bounds.right, dem.bounds.bottom, dem.bounds.top]
+
+        cmaps = ["Greys_r", "Reds", "twilight", "RdGy_r", "Purples", "YlOrRd"]
+        labels = ["Hillshade", "Slope (°)", "Aspect (°)", "Curvature (100 / m)",
+                  "Terrain Ruggedness Index", "Rugosity"]
+        vlims = [(None, None) for i in range(6)]
+        vlims[3] = [-2, 2]
+
+        for i in range(6):
+            plt.subplot(3, 2, i + 1)
+            plt.imshow(
+                attributes[i].squeeze(),
+                cmap=cmaps[i],
+                extent=plt_extent,
+                vmin=vlims[i][0], vmax=vlims[i][1]
+            )
+            cbar = plt.colorbar()
+            cbar.set_label(labels[i])
+            plt.xticks([])
+            plt.yticks([])
+
+        return plt
+
+    plot_attr_ref = plot_attr(ref, attributes_ref_dem)
+    plot_attr_ref.savefig(
+        os.path.join(
+            args.output_dir,
+            "terrain_attributes_" + ref_dem_name + ".png"
+        ),
+        dpi=300, bbox_inches='tight'
     )
-    file.close
+
+    plot_attr_src = plot_attr(src, attributes_src_dem)
+    plot_attr_src.savefig(
+        os.path.join(
+            args.output_dir,
+            "terrain_attributes_" + s1_dem_name + ".png"
+        ),
+        dpi=300, bbox_inches='tight'
+    )
+
+    # Compute measures
+    # Write error measures data to csv file
+    with open(csv_file, 'a', encoding='UTF8') as f:
+        writer = csv.writer(f)
+
+        # data input
+        data = [
+            args.s1_dem_path, args.ref_dem_path,
+            (args.lulc_path if args.lulc_path else "Not used"),
+            (coreg_filename if coreg_filename else "Before coregistration"),
+            np.nanmin(dh.data), np.nanmax(dh.data), np.nanmean(dh.data),
+            np.nanstd(dh.data), np.nanmean(np.abs(dh.data)),
+            np.sqrt((dh.data ** 2).mean()), xdem.spatialstats.nmad(dh.data)
+        ]
+        # write the data
+        writer.writerow(data)
 
     # Estimate the measurement error by bin of slope,
     # using a desired error measure as robust estimator
     # defaults to count and nmad
-    variables = [slope.ravel(), aspect.ravel()]
+    variables = [attributes_ref_dem[1].ravel(), attributes_ref_dem[2].ravel()]
     variables_names = ['slope', 'aspect']
     variables_bins = [30, 30]
     if args.lulc_path is not None:
@@ -235,10 +311,12 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     df_ns[df_ns.nd == 1].to_csv(
         os.path.join(
             args.output_dir,
-            'error_' + prefix + "_binned_stats.csv"
+            'binned_stats_' + prefix + ".csv"
         ),
         index=False
     )
+
+    # Plot binned elevation
     xdem.spatialstats.plot_1d_binning(
         df_ns, 'slope', 'nmad',
         'Slope (degrees) calculated from Reference DEM',
@@ -335,6 +413,7 @@ def coregister(src, ref, coreg_type):
         prefix_after,
         coreg_filename=filename
     )
+
     return out
 
 
@@ -344,6 +423,6 @@ compute_errors(s1_dem, reference_dem, prefix_before)
 # Coregister and compute errors
 if args.coregister:
     coreg_list = []
-    for c in args.coregistration_type:
+    for c in args.coregistration_method:
         s1_dem_coreg = coregister(s1_dem, reference_dem, c)
         coreg_list.append(s1_dem_coreg)

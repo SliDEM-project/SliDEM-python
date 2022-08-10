@@ -82,7 +82,7 @@ WORKDIR ./xdem
 RUN conda env create -f dev-environment.yml
 SHELL ["conda", "run", "-n", "xdem-dev", "/bin/bash", "-c"]
 RUN pip install -e .
-RUN conda install -y -c conda-forge bmi-topography python-dotenv seaborn pysal
+RUN conda install -y -c conda-forge bmi-topography python-dotenv seaborn pysal scicomap
 RUN conda init bash
 
 WORKDIR ..
