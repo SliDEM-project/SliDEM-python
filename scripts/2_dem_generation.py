@@ -96,11 +96,12 @@ parser.add_argument(
      `GETASSE30`, `CDEM`'''
 )
 parser.add_argument(
-    '--subset_toggle',
-    type=bool,
-    default=True,
-    help='''Should the process be performed in a subset corresponding to the
-    given AOI?, defaults to True'''
+    '--no_subset',
+    action='store_false',
+    help='''Call this flag if the process should 
+    be performed in the whole AOI? Otherwise it will create 
+    additionally a subset corresponding to the
+    given AOI.'''
 )
 parser.add_argument(
     '--aoi_buffer',
@@ -110,18 +111,16 @@ parser.add_argument(
     buffer around it be drawn? How big? Defaults to 0'''
 )
 parser.add_argument(
-    '--output_projected',
-    type=bool,
-    default=True,
-    help='''Should the results be in WGS84/UTM for the final elevation
-    product?, defaults to True'''
+    '--no_output_projected',
+    action='store_false',
+    help='''Call this flag if the final outputs should 
+    be in WGS84. Otherwise it will project them in WGS84/UTM.'''
 )
 parser.add_argument(
-    '--ifg_squarepixel',
-    type=bool,
-    default=True,
-    help='''Should the resulting interferogram have a squared pixel size (True, default)
-    or independent window sizes'''
+    '--ifg_indwinsize',
+    action='store_false',
+    help='''Call this flag if the resulting interferogram should have 
+    independent window sizes otherwise, it will have squared pixel size'''
 )
 parser.add_argument(
     '--ifg_cohwin_rg',
@@ -133,13 +132,13 @@ parser.add_argument(
     '--ifg_cohwin_az',
     type=int,
     default=2,
-    help='''Coherence azimuth window size (defaults to 2, ignored when ifg_squarepixel=True)'''
+    help='''Coherence azimuth window size
+     (defaults to 2, when --ifg_indwinsize is called)'''
 )
 parser.add_argument(
-    '--multilook_toggle',
-    type=bool,
-    default=True,
-    help='''Should multilooking be performed?, defaults to True'''
+    '--no_multilook',
+    action='store_false',
+    help='''Should multilooking be skipped?'''
 )
 parser.add_argument(
     '--multilook_range',
@@ -148,10 +147,9 @@ parser.add_argument(
     help='''Number of multilook range, defaults to 6'''
 )
 parser.add_argument(
-    '--goldstein_toggle',
-    type=bool,
-    default=True,
-    help='''Should Goldstein filtering be applied?, defaults to True'''
+    '--no_goldstein',
+    action='store_false',
+    help='''Should Goldstein filtering be skipped?'''
 )
 parser.add_argument(
     '--gpf_fftsize',
@@ -167,9 +165,8 @@ parser.add_argument(
 )
 parser.add_argument(
     '--gpf_cohmask',
-    type=bool,
-    default=False,
-    help='''Use coherence mask?, defaults to False'''
+    action='store_true',
+    help='''Use coherence mask?'''
 )
 parser.add_argument(
     '--gpf_cohth',
@@ -452,15 +449,15 @@ def topsar_deburst(sources):
 
 
 # [P2] Function to calculate the interferogram with SNAP
-def interferogram(product, ifg_squarepixel, ifg_cohwin_az, ifg_cohwin_rg):
+def interferogram(product, ifg_indwinsize, ifg_cohwin_az, ifg_cohwin_rg):
     print('Creating interferogram...')
     parameters.put("Subtract flat-earth phase", True)
     parameters.put("Degree of \"Flat Earth\" polynomial", 5)
     parameters.put("Number of \"Flat Earth\" estimation points", 501)
     parameters.put("Orbit interpolation degree", 3)
     parameters.put("Include coherence estimation", True)
-    parameters.put("Square Pixel", ifg_squarepixel)
-    parameters.put("Independent Window Sizes", not ifg_squarepixel)
+    parameters.put("Square Pixel", not ifg_indwinsize)
+    parameters.put("Independent Window Sizes", ifg_indwinsize)
     parameters.put("Coherence Range Window Size", ifg_cohwin_rg)
     parameters.put("Coherence Azimuth Window Size", ifg_cohwin_az)
     return GPF.createProduct("Interferogram", parameters, product)
@@ -922,17 +919,17 @@ if 'P1' in args.pipelines:
         file1=file_path_1, file2=file_path_2,
         aoi=args.aoi_path, polarization=args.polarization,
         dem=args.dem, out_dir=output_dir,
-        ifg_squarepixel=args.ifg_squarepixel,
+        ifg_squarepixel=not args.ifg_indwinsize,
         ifg_cohwin_rg=args.ifg_cohwin_rg,
         ifg_cohwin_az=args.ifg_cohwin_az,
-        multilooking=args.multilook_toggle,
+        multilooking=args.no_multilook,
         ml_rangelooks=args.multilook_range,
-        goldsteinfiltering=args.goldstein_toggle,
+        goldsteinfiltering=args.no_goldstein,
         gpf_fftsize=args.gpf_fftsize,
         gpf_win=args.gpf_win,
         gpf_cohmask=args.gpf_cohmask,
         gpf_cohth=args.gpf_cohth,
-        subsetting=args.subset_toggle,
+        subsetting=args.no_subset,
         subset_buffer=args.aoi_buffer
     )
 
@@ -943,15 +940,15 @@ if 'P2' in args.pipelines:
         cost_mode=args.snaphu_costmode,
         tile_overlap_row=args.snaphu_tile_overlap_row,
         tile_overlap_col=args.snaphu_tile_overlap_col,
-        subset=args.subset_toggle
+        subset=args.no_subset
     )
 
 if 'P3' in args.pipelines:
     run_P3_elevation(
         out_dir=output_dir,
         dem=args.dem,
-        proj=args.output_projected,
-        subset=args.subset_toggle,
+        proj=args.no_output_projected,
+        subset=args.no_subset,
         pixel_size=args.pixel_size,
         coherence_threshold=args.coherence_threshold,
         nodataval=args.no_data_value

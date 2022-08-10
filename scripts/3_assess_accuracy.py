@@ -53,10 +53,9 @@ parser.add_argument(
 )
 parser.add_argument(
     '--coregister',
-    type=bool,
-    default=False,
-    help='''Boolean to define if the S1 DEM should be coregistered
-    vertically to the reference DEM. Defaults to False'''
+    action='store_true',
+    help='''Call this flag if the S1 DEM should be coregistered
+    vertically to the reference DEM'''
 )
 parser.add_argument(
     '--coregistration_type',
