@@ -190,6 +190,45 @@ done
 Depending on whether you have been using the container before, the processing might take more or less time.
 The main reason is that reference DEM data is being downloaded for the data. 
 
+### 4. Accuracy assessment
+I strongly recommend you do your own accuracy assessment of the resulting products with 
+[xDEM](https://xdem.readthedocs.io/en). 
+
+However, I have included a module that will allow 
+the generation of several plots and error measurements based on `xDEM` that can help you get an idea
+of the quality of the DEMs. 
+
+Please bear in mind I am still implementing this so the script and outputs might change a lot. 
+**ALSO** make sure you activate the conda environment for `xDEM` before running the script. 
+
+```commandline
+# Usage example
+conda activate xdem-dev
+python home/scripts/3_assess_accuracy.py -h
+```
+
+For now the arguments include several paths to data folders, see the help with the command above. 
+
+**Note:** For the following paths:
+- reference DEM you want to use
+- (optional) LULC data to calculate statistics over land cover classes
+
+You can use the script below to get reference DEM data from OpenTopography and LULC data from WorldCover.
+Please consider you will need to create an account and get an API key for OpenTopography (all free).
+```commandline
+# Usage example
+conda activate xdem-dev
+python home/scripts/3_1_aux_data_download.py -h
+```
+
+When using the accuracy assessment script, add the flag `--coregister` 
+to perform coregistration with the given reference DEM. This will default to 
+Nuth-Kääb and De-ramping with degree 1 coregistration approaches, 
+but you can pass more methods with the `--coregistration-method` flag. 
+
+```commandline
+conda activate xdem-dev
+```
 **KNOWN ISSUES!**
 - If your AOI is at the coast, the SNAPHU exporting might fail without a warning. 
 This will of course result in faulty results.

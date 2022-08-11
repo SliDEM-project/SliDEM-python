@@ -549,7 +549,7 @@ def snaphu_unwrapping(snaphu_exp_folder):
     process.communicate()
     process.wait()
 
-    unw_img_file = glob.glob(os.path.join(output_dir, str("out_P3_snaphu" + "/UnwPhase*.img")))
+    unw_img_file = glob.glob(os.path.join(output_dir, str("out_P2_snaphu" + "/UnwPhase*.img")))
     if not unw_img_file:
         raise ValueError("Snaphu unwrapping failed. Pipeline [P3] incomplete.")
 

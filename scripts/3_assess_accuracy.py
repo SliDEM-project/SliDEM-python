@@ -34,7 +34,7 @@ parser.add_argument(
 parser.add_argument(
     '--unstable_area_path',
     type=str,
-    help='''path to GeoJSON file (WGS84 - EPSG:4326) 
+    help='''path to spatial file (WGS84 - EPSG:4326) 
     with the outline for unstable areas (e.g. mass movement areas). 
     This can include any other area that should be ignored during 
     accuracy assessment (e.g. water areas, dense vegetation, etc.).
@@ -65,7 +65,19 @@ parser.add_argument(
     nargs="+",
     default=["NuthKaab", "Deramp_d1"],
     help='''List of xdem.coreg functions to set-up a coregistration algorithm
-    Defaults to Nuth-Kaab (NuthKaab) and Deramping with degree 1 (Deramp_d1)'''
+    Defaults to Nuth-Kaab (NuthKaab) and Deramping with degree 1 (Deramp_d1). 
+    Options are:
+    "NuthKaab"
+    "Deramp_d1"
+    "Deramp_d2"
+    "Deramp_d3"
+    "ICP"
+    "BiasCorr"
+    Combined coregistration pipelines: 
+    "NuthKaab_Deramp_d1"
+    "ICP_NuthKaab"
+    "BiasCorr_ICP_NuthKaab"
+    '''
 )
 parser.add_argument(
     '--lulc_path',
@@ -167,7 +179,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
     dem_ls = [ref, src, dh]
     # Plot
-    plt.figure(figsize=(20, 5), dpi=300.0, tight_layout=True)
+    plt.figure(figsize=(16, 4), dpi=300.0, tight_layout=True)
     plt_extent = [
         dh.bounds.left,
         dh.bounds.right,
@@ -180,15 +192,20 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     vlims[1] = vlims[0]
     vlims[2] = [-args.elev_diff_min_max, args.elev_diff_min_max]
     labels = [
-        'Reference DEM | Elevation (m)',
-        'S1 DEM | Elevation (m)',
-        'Reference - S1-DEM | Elevation difference (m)'
+        'Elevation (m)',
+        'Elevation (m)',
+        'Elevation difference (m)'
+    ]
+    titles = [
+        'Reference DEM',
+        'S1 DEM',
+        'Reference - S1-DEM'
     ]
     for i in range(3):
         plt.subplot(1, 3, i + 1)
         ax = plt.gca()
-        unstable.ds.plot(ax=ax, fc='none', ec='tab:magenta')
-        ax.plot([], [], color='tab:magenta', label='Unstable areas')
+        unstable.ds.plot(ax=ax, fc='none', ec='k')
+        ax.plot([], [], color='k', label='Unstable areas')
         plt.imshow(
             dem_ls[i].data.squeeze(),
             cmap=cmaps[i],
@@ -200,6 +217,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         plt.xticks([])
         plt.yticks([])
         plt.legend(loc='lower right')
+        plt.title(titles[i])
 
     plt.savefig(
         os.path.join(
