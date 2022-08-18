@@ -26,7 +26,7 @@ Authors:
 parser.add_argument(
     '--output_dir',
     type=str,
-    default='data',
+    default='accuracy',
     required=True,
     help='''relative path (refers to mounted volume) to the directory where'
   results should be written into'''
@@ -91,12 +91,6 @@ parser.add_argument(
     '--ref_dem_name',
     type=str,
     help='''shorter name for external DEM used. Used to determine output file names.'''
-)
-parser.add_argument(
-    '--aoi_path',
-    type=str,
-    help='''path to GeoJSON file (WGS84 - EPSG:4326) with the study area outline.
-    This area will be used to download a subset of the selected OpenTopography DEM.'''
 )
 parser.add_argument(
     '--no_data_value',
@@ -302,7 +296,8 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             (args.lulc_path if args.lulc_path else "Not used"),
             (coreg_filename if coreg_filename else "Before coregistration"),
             np.nanmin(dh.data), np.nanmax(dh.data), np.nanmean(dh.data),
-            np.nanstd(dh.data), np.nanmean(np.abs(dh.data)),
+            np.nanstd(dh.data),
+            np.nanmean(np.abs(dh.data)),
             np.sqrt((dh.data ** 2).mean()), xdem.spatialstats.nmad(dh.data)
         ]
         # write the data
@@ -378,6 +373,9 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             dpi=300, bbox_inches='tight'
         )
 
+    if coreg_filename is not None:
+
+
 
 def coregister_func(coregister_name):
     match coregister_name:
@@ -431,7 +429,26 @@ def coregister(src, ref, coreg_type):
         prefix_after,
         coreg_filename=filename
     )
-
+    dh_before = (ref - src).data[np.invert(unstable_mask)]
+    dh_after = (ref - s1_dem_coregistered).data[np.invert(unstable_mask)]
+    nmad_before = xdem.spatialstats.nmad(dh_before)
+    nmad_after = xdem.spatialstats.nmad(dh_after)
+    # Make histogram with values before and after coregistration
+    plt.title(f"NMAD before: {nmad_before:.2f} m, "
+              f"NMAD after: {nmad_after:.2f} m")
+    plt.hist(dh_before,
+             bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
+             alpha=0.75,  label = "Before coregistration")
+    plt.hist(dh_after, facecolor='g',
+             bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
+             alpha=0.75, label = "After coregistration")
+    plt.savefig(
+        os.path.join(
+            args.output_dir,
+            prefix_after + "_hist.png"
+        ),
+        dpi=300, bbox_inches='tight'
+    )
     return out
 
 
