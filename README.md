@@ -1,7 +1,7 @@
 # SliDEM
 Development of the SliDEM Python package for the SliDEM project
 
-This project was presented at FOSS4G 2022. See then slides [here](https://drive.google.com/file/d/1tc5K_Rwd8wFz1pvrpZXZ7StEUtlCWMeJ/view). 
+This project was presented at FOSS4G 2022. See the slides [here](https://drive.google.com/file/d/1tc5K_Rwd8wFz1pvrpZXZ7StEUtlCWMeJ/view). 
 
 
 ---
