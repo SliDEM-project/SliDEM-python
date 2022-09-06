@@ -1,6 +1,6 @@
 # Get docker container from mundialis
-# FROM mundialis/esa-snap:ubuntu
-FROM esa-snap:ubuntu
+FROM mundialis/esa-snap:ubuntu
+# FROM esa-snap:ubuntu
 
 ## Move local packages to tmp file
 COPY setup/requirements.txt /tmp/base_requirements.txt
@@ -11,8 +11,8 @@ COPY setup/requirements.txt /tmp/base_requirements.txt
 ## This line results in an infinite loop, better use the .sh
 # RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
 ## When not running behind a firewall, uncomment the next two lines
-# COPY setup/update-snap.sh /tmp/update-snap.sh
-# RUN bash /tmp/update-snap.sh
+COPY setup/update-snap.sh /tmp/update-snap.sh
+RUN bash /tmp/update-snap.sh
 
 ## Install requirements for python
 RUN python3.6 -m pip install --upgrade pip
