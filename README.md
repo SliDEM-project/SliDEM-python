@@ -6,41 +6,41 @@ This project was presented at FOSS4G 2022. See the slides [here](https://drive.g
 
 ---
 
-**NOTE!** 
+**NOTES!** 
 
 Even if we call it the SliDEM package, the structure of a package is not there yet. We are currently developing this repository actively and hope to have a working package soon. 
 
-Currently, we present a series of executable scripts to run within a Docker container. You will see the instructions on how to set it up and start running the scripts below. 
+**We have implemented a [changelog](CHANGELOG.md)**, please check it frequently for updates, including new ways to call 
+the scripts or changes in parameters. 
 
-The scripts still need some refinement before being fully ready to use. Cleaning of directories and naming is still needed so please check before running.
+Currently, we present a series of executable scripts to run within a Docker container. You will see the instructions on how to set it up and start running the scripts below. 
 
 ---
 ## Setup
 
-To test scripts inside a docker container, follow these steps:
+To run the scripts inside a docker container, follow these steps:
 
-1. Clone this repository (download as zip and unzip OR even better use git)
-2. Install Docker if you do not have it already
+1. Install Docker if you do not have it already
     - See instructions for [Windows here](https://docs.docker.com/desktop/windows/install/) and for [Linux here](https://docs.docker.com/engine/install/).
 
-3. Create a container to work on
-    - Go to you terminal, navigate to the folder where you unzipped this repo and type the command below.
+2. Create a container to work on
+    - Go to you terminal and type the command below.
     - You can mount a volume into the container.
-    - I recommend having a `data` folder where all the data can be included and through the volume, it can also be accessed inside docker. 
+    - We recommend having a `data` folder where all the data can be included and through the volume, it can also be accessed inside docker. 
     - What the command does:
       - `docker run` is the command to run an image through a container
       - `-it` calls an interactive process (like a shell)
       - `--entrypoint /bin/bash` will start your container in bash
       - `--name snap` gives a name to your image, so you can refer to it later
       - `-v PATH_TO_DIR/SliDEM-python:/home/` mounts a volume on your container. 
-Replace `PATH_TO_DIR` with the path of the directory where you cloned SliDEM-python.
+Replace `PATH_TO_DIR` with the path of the directory you wish to mount
       - `loreabad6/slidem` is the Docker image available on DockerHub for this project
 
    ```
    docker run -it --entrypoint /bin/bash --name snap -v PATH_TO_DIR/SliDEM-python:/home/ loreabad6/slidem
    ```
 
-4. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the parameters when calling the scripts. 
+3. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the parameters when calling the scripts. 
    - You can exit your container by doing `CTRL+D`
    - you can delete the container with:
    ```
@@ -53,7 +53,7 @@ Replace `PATH_TO_DIR` with the path of the directory where you cloned SliDEM-pyt
    docker exec -it snap /bin/bash
    ```
 
-5. Using `xdem`:
+4. Using `xdem`:
    - Given the different dependencies for this module, you should use the virtual environment created for it.
 
    ```commandline
@@ -79,11 +79,14 @@ So far, steps are organized into 4 executable scripts:
 3. Compute DEM from S1 data
 4. Calculate DEM accuracy
 
-To run the scripts for now you need to navigate to each folder with the scripts included. 
-Assuming that you cloned this repo and started the Docker container from this directory,
-you can just follow the examples below.
+The scripts are included within the Docker image, and therefore are inside the 
+container you created in the folder `scripts`. 
+To run them, you can follow the examples below. 
+Please notice that some scripts require you to call `python3.6` 
+or alternatively activate a conda environment and then 
+call only `python`.
 
-I recommend you mainly work on the `data` directory as download folder and a workplace to save your results. 
+We recommend you mainly work on the `data` directory as download folder and a workplace to save your results. 
 But of course this is up to you.
 
 ### 1. Query 
