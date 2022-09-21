@@ -71,18 +71,6 @@ was correct with (this might take several minutes):
    pytest -rA
    ```
 
-6. Using `demcoreg`:
-   - Given the different dependencies for this module, you should use the virtual environment created for it. 
-   - Here are some commands useful to activate and deactivate the environment:
-
-   ```
-   # to activate:
-   source activate demcoreg
-   
-   # to deactivate:
-   conda deactivate
-   ```
-
 ## Workflow
 
 So far, steps are organized into 3 executable scripts:
