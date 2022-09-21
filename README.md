@@ -105,11 +105,11 @@ intersects your AOI and find matching scenes for the whole S1 lifetime
 
 ```commandline
 # Usage example
-python3.6 home/scripts/0_query_s1.py --download_dir data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi_path data/aoi/alta.geojson
+python3.6 scripts/0_query_s1.py --download_dir data/s1/ --query_result s1_scenes.csv --date_start 2019/06/01 --date_end 2019/06/10 --aoi_path data/aoi/alta.geojson
 ```
 ```commandline
 # Get help
-python3.6 home/scripts/0_query_s1.py -h
+python3.6 scripts/0_query_s1.py -h
 ```
 
 ### 2. Download
@@ -142,11 +142,11 @@ Once the changes to the CSV files are saved and your `.env` file is ready, you c
 
 ```commandline
 # Usage example
-python3.6 home/scripts/1_download_s1.py --download_dir data/s1/ --query_result s1_scenes.csv
+python3.6 scripts/1_download_s1.py --download_dir data/s1/ --query_result s1_scenes.csv
 ```
 ```commandline
 # Get help
-python3.6 home/scripts/1_download_s1.py -h
+python3.6 scripts/1_download_s1.py -h
 ```
 
 Downloading Sentinel-1 data always takes a while and requires a lot of disk space. 
@@ -165,17 +165,17 @@ Several other parameters can be passed to specific parts of the workflow.
 Check the help for their descriptions and default values.
 ```commandline
 # Usage example
-python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index 0 --aoi_path data/aoi.geojson
+python3.6 scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index 0 --aoi_path data/aoi.geojson
 ```
 ```commandline
 # Get help
-python3.6 home/scripts/2_dem_generation.py -h
+python3.6 scripts/2_dem_generation.py -h
 ```
 
 If you skipped the query and download steps, you can pass your own index pairs as a list to the dem generation script:
 ```commandline
 # Usage example
-python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --pair_ids 's1_scene_id_1' 's1_scene_id_2' --aoi_path data/aoi.geojson
+python3.6 scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --pair_ids 's1_scene_id_1' 's1_scene_id_2' --aoi_path data/aoi.geojson
 ```
 
 #### Generating DEMs in a loop
@@ -186,7 +186,7 @@ If you are looking into generating DEMs in a loop, you can create a shell file (
 # have set on your queried file (CSV). So for example, if you
 # set Download = TRUE for 5 pairs then do {0..4}
 for i in {0..1}; do
-  python3.6 home/scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index "$i" --aoi_path data/aoi.geojson
+  python3.6 scripts/2_dem_generation.py --download_dir data/s1/ --output_dir data/results/ --query_result s1_scenes.csv --pair_index "$i" --aoi_path data/aoi.geojson
 done
 ```
 
@@ -207,7 +207,7 @@ Please bear in mind I am still implementing this so the script and outputs might
 ```commandline
 # Usage example
 conda activate xdem-dev
-python home/scripts/3_assess_accuracy.py -h
+python scripts/3_assess_accuracy.py -h
 ```
 
 For now the arguments include several paths to data folders, see the help with the command above. 
@@ -221,7 +221,7 @@ Please consider you will need to create an account and get an API key for OpenTo
 ```commandline
 # Usage example
 conda activate xdem-dev
-python home/scripts/3_1_aux_data_download.py -h
+python scripts/3_1_aux_data_download.py -h
 ```
 
 When using the accuracy assessment script, add the flag `--coregister` 
@@ -236,7 +236,7 @@ conda activate xdem-dev
 - If your AOI is at the coast, the SNAPHU exporting might fail without a warning. 
 This will of course result in faulty results.
 
-This list is not exhaustive and we try to document these problems in our issue tracker.
+This list is not exhaustive, and we try to document these problems in our issue tracker.
 
 We are working to improve all these issues but 
 for the moment please be aware and patient with us :pray: 
