@@ -73,10 +73,11 @@ was correct with (this might take several minutes):
 
 ## Workflow
 
-So far, steps are organized into 3 executable scripts:
+So far, steps are organized into 4 executable scripts:
 1. Query S1 data
 2. Download S1 data
 3. Compute DEM from S1 data
+4. Calculate DEM accuracy
 
 To run the scripts for now you need to navigate to each folder with the scripts included. 
 Assuming that you cloned this repo and started the Docker container from this directory,
