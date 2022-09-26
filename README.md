@@ -34,10 +34,11 @@ To run the scripts inside a docker container, follow these steps:
       - `--name snap` gives a name to your image, so you can refer to it later
       - `-v PATH_TO_DIR/SliDEM-python:/home/` mounts a volume on your container. 
 Replace `PATH_TO_DIR` with the path of the directory you wish to mount
+      - `--pull=always` will update the Docker image to the latest available on Docker Hub 
       - `loreabad6/slidem` is the Docker image available on DockerHub for this project
 
    ```
-   docker run -it --entrypoint /bin/bash --name snap -v PATH_TO_DIR/SliDEM-python:/home/ loreabad6/slidem
+   docker run -it --entrypoint /bin/bash --name snap -v PATH_TO_DIR/SliDEM-python:/home/ --pull=always loreabad6/slidem
    ```
 
 3. You can remove the container once you are done. All results should be written to the mounted volume, but of course make sure that this is well set in the parameters when calling the scripts. 
