@@ -518,7 +518,8 @@ def subset(source, aoi, buffer):
 
 
 # [P3] Function to export to snaphu
-def snaphu_export(product, snaphu_exp_folder, tiles, cost_mode, tile_overlap_row, tile_overlap_col):
+def snaphu_export(product, snaphu_exp_folder, tiles, cost_mode,
+                  tile_overlap_row, tile_overlap_col):
     print("Exporting to SNAPHU format...")
     parameters.put('targetFolder', snaphu_exp_folder)
     parameters.put('statCostMode', cost_mode)
