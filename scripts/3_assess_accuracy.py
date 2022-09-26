@@ -373,7 +373,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             dpi=300, bbox_inches='tight'
         )
 
-    if coreg_filename is not None:
+    # if coreg_filename is not None:
 
 
 
