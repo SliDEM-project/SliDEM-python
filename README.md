@@ -188,7 +188,7 @@ The main reason is that reference DEM data is being downloaded for the data.
 
 ### 4. Accuracy assessment
 I strongly recommend you do your own accuracy assessment of the resulting products with 
-[xDEM](https://xdem.readthedocs.io/en). 
+[xDEM](https://xdem.readthedocs.io/en/latest/). 
 
 However, I have included a module that will allow 
 the generation of several plots and error measurements based on `xDEM` that can help you get an idea
