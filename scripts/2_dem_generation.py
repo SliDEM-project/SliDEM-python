@@ -342,7 +342,9 @@ def read_aoi(aoi, buffer):
 
 
 # [P1] Function to get subswaths and bursts
-def get_swath_burst(filename, aoi, polar=args.polarization, product_idx=1):
+def get_swath_burst(filename, aoi,
+                    polar=args.polarization,
+                    product_idx=1):
     print('Extracting subswath and bursts for AOI...')
     aoi_geom = read_aoi(aoi, buffer=args.aoi_buffer)
 
@@ -354,6 +356,11 @@ def get_swath_burst(filename, aoi, polar=args.polarization, product_idx=1):
     )
     # Load zip file
     img.load_data(zip_path=filename)
+    # Save to json to check geometry manually
+    img.to_json(os.path.join(
+        output_dir,
+        'subswath_bursts_' + str(product_idx) + '.geojson'))
+
     #  Create geodataframe with subswaths, bursts and geoms
     #  Calling an internal method to avoid writing to json and reloading
     img._create_subswath_geometry()
