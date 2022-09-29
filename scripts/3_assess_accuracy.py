@@ -130,7 +130,7 @@ if args.lulc_path is not None:
     lulc_resampled = lulc.reproject(s1_dem, resampling="bilinear")
 
 # Assign no data value if needed
-s1_dem.set_ndv(args.no_data_value)
+s1_dem.set_nodata(args.no_data_value)
 
 # Reproject reference DEM to S1 DEM
 reference_dem = reference_dem.reproject(s1_dem)
@@ -422,7 +422,7 @@ def coregister(src, ref, coreg_type):
     out.save(filename)
     s1_dem_coregistered = xdem.DEM(filename)
     # Assign no data value if needed
-    s1_dem_coregistered.set_ndv(args.no_data_value)
+    s1_dem_coregistered.set_nodata(args.no_data_value)
     compute_errors(
         s1_dem_coregistered,
         ref,
