@@ -3,6 +3,7 @@ import os.path
 import xdem
 import csv
 import geoutils as gu
+import glob
 import numpy as np
 import matplotlib.pyplot as plt
 import scicomap as sc
@@ -24,12 +25,18 @@ Authors:
     formatter_class=argparse.RawTextHelpFormatter
 )
 parser.add_argument(
-    '--output_dir',
+    '--s1_dem_dir',
     type=str,
-    default='accuracy',
-    required=True,
-    help='''relative path (refers to mounted volume) to the directory where'
-  results should be written into'''
+    help='''relative path (refers to mounted volume) to the directory where
+    the results of the DEM generation step are stored.
+    If the file structures and naming was not altered, the script will look
+    for the file with the ending `_elevation.tiff`.'''
+)
+parser.add_argument(
+    '--s1_dem_path',
+    type=str,
+    help='''path to S1-based DEM to be assessed for errors. Ignored if
+    s1_dem_dir is set.'''
 )
 parser.add_argument(
     '--unstable_area_path',
@@ -39,12 +46,6 @@ parser.add_argument(
     This can include any other area that should be ignored during 
     accuracy assessment (e.g. water areas, dense vegetation, etc.).
     If absent then the whole AOI is used for error analysis.'''
-)
-parser.add_argument(
-    '--s1_dem_path',
-    type=str,
-    required=True,
-    help='''path to S1-based DEM to be assessed for errors.'''
 )
 parser.add_argument(
     '--ref_dem_path',
@@ -90,7 +91,16 @@ parser.add_argument(
 parser.add_argument(
     '--ref_dem_name',
     type=str,
-    help='''shorter name for external DEM used. Used to determine output file names.'''
+    help='''shorter name for external DEM used. 
+    Used to determine output file names.'''
+)
+parser.add_argument(
+    '--acc_output_dir',
+    type=str,
+    default='accuracy',
+    help='''name of the directory where the accuracy assessment should 
+    be saved into. It defaults to a sub-directory inside the `s1_dem_dir` 
+    named "accuracy".'''
 )
 parser.add_argument(
     '--no_data_value',
@@ -111,8 +121,17 @@ args = parser.parse_args()
 os.chdir('home/')
 
 # Create output_dir if not existing
-if not os.path.exists(args.output_dir):
-    os.mkdir(args.output_dir)
+# If directory to DEM generation output folder is given,
+# then create the directory inside this folder
+if args.s1_dem_dir is not None:
+    accuracy_dir = os.path.join(args.s1_dem_dir, args.acc_output_dir)
+    if not os.path.exists(accuracy_dir):
+        os.mkdir(accuracy_dir)
+# Otherwise just create the given folder for the accuracy assessment
+else:
+    accuracy_dir = args.acc_output_dir
+    if not os.path.exists(accuracy_dir):
+        os.mkdir(accuracy_dir)
 
 # Naming for files
 if args.ref_dem_name is None:
@@ -120,17 +139,25 @@ if args.ref_dem_name is None:
 else:
     ref_dem_name = args.ref_dem_name
 
-s1_dem_name = args.s1_dem_path.split('/', -1)[-1].replace('.tif', '')
+if args.s1_dem_path is not None:
+    s1_dem_path = args.s1_dem_path
+else:
+    s1_dem_path = glob.glob(os.path.join(args.s1_dem_dir,
+                                         str("*_elevation.tif")))[0]
+
+s1_dem_name = s1_dem_path.split('/', -1)[-1].replace('.tif', '')
+
 
 # Error assessment with xdem
 reference_dem = xdem.DEM(args.ref_dem_path)
-s1_dem = xdem.DEM(args.s1_dem_path)
+s1_dem = xdem.DEM(s1_dem_path)
 if args.lulc_path is not None:
     lulc = gu.Raster(args.lulc_path)
     lulc_resampled = lulc.reproject(s1_dem, resampling="bilinear")
 
 # Assign no data value if needed
-s1_dem.set_nodata(args.no_data_value)
+s1_dem.set_nodata(args.no_data_value,
+                  update_array=True, update_mask=True)
 
 # Reproject reference DEM to S1 DEM
 reference_dem = reference_dem.reproject(s1_dem)
@@ -149,7 +176,7 @@ header = [
     'std_error', 'mae', 'rmse', 'nmad'
 ]
 csv_file = os.path.join(
-    args.output_dir,
+    accuracy_dir,
     "error_S1_" + s1_dem_name + '.csv'
 )
 
@@ -166,7 +193,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     # Calculate DEM error (dh)
     dh = ref - src
     dh_file = os.path.join(
-        args.output_dir,
+        accuracy_dir,
         prefix + ".tif"
     )
     dh.save(dh_file)
@@ -215,7 +242,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
     plt.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             prefix + ".png"
         )
     )
@@ -270,7 +297,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     plot_attr_ref = plot_attr(ref, attributes_ref_dem)
     plot_attr_ref.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             "terrain_attributes_" + ref_dem_name + ".png"
         ),
         dpi=300, bbox_inches='tight'
@@ -279,7 +306,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     plot_attr_src = plot_attr(src, attributes_src_dem)
     plot_attr_src.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             "terrain_attributes_" + s1_dem_name + ".png"
         ),
         dpi=300, bbox_inches='tight'
@@ -292,7 +319,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
         # data input
         data = [
-            args.s1_dem_path, args.ref_dem_path,
+            s1_dem_path, args.ref_dem_path,
             (args.lulc_path if args.lulc_path else "Not used"),
             (coreg_filename if coreg_filename else "Before coregistration"),
             np.nanmin(dh.data), np.nanmax(dh.data), np.nanmean(dh.data),
@@ -323,7 +350,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
     df_ns[df_ns.nd == 1].to_csv(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             'binned_stats_' + prefix + ".csv"
         ),
         index=False
@@ -338,7 +365,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
     plt.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             prefix + "_nmad_binned_slope.png"
         ),
         dpi=300, bbox_inches='tight'
@@ -352,7 +379,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
     plt.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             prefix + "_nmad_binned_aspect.png"
         ),
         dpi=300, bbox_inches='tight'
@@ -367,7 +394,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
 
         plt.savefig(
             os.path.join(
-                args.output_dir,
+                accuracy_dir,
                 prefix + "_nmad_binned_lulc.png"
             ),
             dpi=300, bbox_inches='tight'
@@ -416,13 +443,14 @@ def coregister(src, ref, coreg_type):
     prefix_file = s1_dem_name + '_' + ref_dem_name + '_coreg_' + coreg_type
     prefix_after = "error_" + ref_dem_name + "_S1_" + s1_dem_name + '_coreg_' + coreg_type
     filename = os.path.join(
-        args.output_dir,
+        accuracy_dir,
         prefix_file + '.tif'
     )
     out.save(filename)
     s1_dem_coregistered = xdem.DEM(filename)
     # Assign no data value if needed
-    s1_dem_coregistered.set_nodata(args.no_data_value)
+    s1_dem_coregistered.set_nodata(args.no_data_value,
+                                   update_array=True, update_mask=True)
     compute_errors(
         s1_dem_coregistered,
         ref,
@@ -434,17 +462,19 @@ def coregister(src, ref, coreg_type):
     nmad_before = xdem.spatialstats.nmad(dh_before)
     nmad_after = xdem.spatialstats.nmad(dh_after)
     # Make histogram with values before and after coregistration
+    plt.figure(figsize=(6, 6.7), dpi=300.0, tight_layout=True)
     plt.title(f"NMAD before: {nmad_before:.2f} m, "
               f"NMAD after: {nmad_after:.2f} m")
     plt.hist(dh_before,
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
-             alpha=0.75,  label = "Before coregistration")
+             alpha=0.75,  label="Before coregistration")
     plt.hist(dh_after, facecolor='g',
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
-             alpha=0.75, label = "After coregistration")
+             alpha=0.75, label="After coregistration")
+    plt.legend(loc='upper right')
     plt.savefig(
         os.path.join(
-            args.output_dir,
+            accuracy_dir,
             prefix_after + "_hist.png"
         ),
         dpi=300, bbox_inches='tight'
