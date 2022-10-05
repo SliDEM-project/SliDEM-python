@@ -242,11 +242,42 @@ where the directories starting with `out_*` are located.
 the `cut` statement removes the `home/` part of the find results to avoid conflicts
 on how the data is called. 
 
-When calling the python script, the `-W ignore` flag is added to skip user warnings realted to nodata
+When calling the python script, the `-W ignore` flag is added to skip user warnings 
+related to nodata.
 `--s1_dem_dir` is the parameter that will get looped over. 
 All the other arguments should be replaced with paths to the relevant data sources.
 
-**ISSUES**
+
+### 5. Volume calculation
+The final task of the `slidem` script sequence is volume calculation.
+In the script you can add a pre-event and a post-event DEM, from which to 
+calculate the volume of a specific "unstable area" outline. 
+
+You can also pass a reference DEM, which will be used to calculate the error
+associated with each input S1-DEM, and consequently will serve to compute
+the propagation error for the estimated volume. 
+Currently, the NMAD and Standard Error (SDE) are used for this task.
+
+The script will compute a DoD, produce a figure with a histogram of 
+elevation difference values and another with maps of the 
+pre- and post-event DEM and its DoD for comparison. 
+
+A CSV file called volume_estimates.csv will also be created. 
+This file will be updated everytime the same output directory is used, 
+regardless of the pre- and post-event DEM data paths passed. The CSV file 
+will collect the file name of each of these, and is meant ot ease comparison
+between several runs of the script. 
+
+Make sure you activate the conda environment for `xDEM` before running 
+the script. 
+
+```commandline
+# Usage example
+conda activate xdem-dev
+python scripts/4_calculate_volume.py -h
+```
+
+## Issues/problems/bugs
 
 We try to document all bugs or workflow problems in our 
 [issue tracker](https://github.com/SliDEM-project/SliDEM-python/issues).

@@ -1,5 +1,7 @@
 # v0.1.0 (develop)
 ## 05.10.2022
+### Added
+- Volume calculation script parametrized
 ### Changes
 - 3_assess_accuracy.py has slightly changed input parameters.
 - `set_ndv` was replaced by `set_nodata`
