@@ -219,7 +219,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     titles = [
         'Reference DEM',
         'S1 DEM',
-        'Reference - S1-DEM'
+        'Reference - S1 DEM'
     ]
     for i in range(3):
         plt.subplot(1, 3, i + 1)
