@@ -4,9 +4,6 @@
 import argparse
 import asf_search as asf
 import geopandas as gpd
-from pyproj import Proj
-from pprint import pprint
-import json
 import logging
 import numpy as np
 import os
