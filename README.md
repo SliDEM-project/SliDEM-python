@@ -224,14 +224,36 @@ to perform coregistration with the given reference DEM. This will default to
 Nuth-Kääb and De-ramping with degree 1 coregistration approaches, 
 but you can pass more methods with the `--coregistration-method` flag. 
 
-```commandline
-conda activate xdem-dev
-```
-**KNOWN ISSUES!**
-- If your AOI is at the coast, the SNAPHU exporting might fail without a warning. 
-This will of course result in faulty results.
+#### Running the accuracy assessment in a loop
+Like generating DEMs in a loop, you can run the 3_accuracy_assessment script over a
+directory where DEM outputs from different time-steps are stored. 
+Specially if there were no changes in the directory structure, this could be a helpful
+bash script to run the accuracy assessment in a loop:
 
-This list is not exhaustive, and we try to document these problems in our issue tracker.
+```shell
+for file in $(find home/data/results -maxdepth 1 -name "out_*" -type d | cut -d'/' -f2-); do
+  python -W ignore scripts/3_assess_accuracy.py --s1_dem_dir ${file} --unstable_area_path data/aoi/unstable_area.gpkg --ref_dem_path data/reference_dem.tif --ref_dem_name NASADEM --elev_diff_min_max 100 --lulc_path data/lulc.tif --coregister
+done
+```
+
+In this script you should replace `home/data/results` with the parent directory 
+where the directories starting with `out_*` are located. 
+`maxdepth` means it will only go one level in the directory tree,
+the `cut` statement removes the `home/` part of the find results to avoid conflicts
+on how the data is called. 
+
+When calling the python script, the `-W ignore` flag is added to skip user warnings realted to nodata
+`--s1_dem_dir` is the parameter that will get looped over. 
+All the other arguments should be replaced with paths to the relevant data sources.
+
+**ISSUES**
+
+We try to document all bugs or workflow problems in our 
+[issue tracker](https://github.com/SliDEM-project/SliDEM-python/issues).
+
+Also feel free to browse through 
+[our wiki](https://github.com/SliDEM-project/SliDEM-python/wiki/) 
+with some FAQ.
 
 We are working to improve all these issues but 
 for the moment please be aware and patient with us :pray: 
