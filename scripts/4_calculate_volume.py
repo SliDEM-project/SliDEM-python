@@ -1,25 +1,18 @@
-# http://gcd.riverscapes.xyz/Concepts/error-propagation.html
-# https://www.hindawi.com/journals/ace/2021/6646709/
-# https://gis.stackexchange.com/questions/306145/dem-of-difference-estimate-the-error-simple-method
-# https://github.com/iamdonovan/pybob
-
 import argparse
 import os.path
 import xdem
 import csv
 import geoutils as gu
-from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-import scicomap as sc
 
 # Arguments
 parser = argparse.ArgumentParser(
     description='''Calculate volumes from DEM differencing
     to characterise volumetric changes between post- and pre-event 
-    DEMs.  The subtraction indicates then positive volumes as deposition
+    DEMs. The subtraction indicates then positive volumes as deposition
     and negative volumes as erosion. The computation also takes into 
-    account the error propagation of the pre- amd post-event DEMs
+    account the error propagation of the pre- and post-event DEMs
     based on a given reference DEM, if given. 
 ''',
     epilog='''
@@ -85,36 +78,32 @@ os.chdir('home/')
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
 
-
 # Read in DEMs
-# dem_pre = xdem.DEM(args.dem_pre_path)
-# dem_pos = xdem.DEM(args.dem_pos_path)
-# reference_dem = xdem.DEM(args.ref_dem_path)
+dem_pre = xdem.DEM(args.dem_pre_path)
+dem_pos = xdem.DEM(args.dem_pos_path)
+reference_dem = xdem.DEM(args.ref_dem_path)
 
-dem_pre_path = "data/results/gjerdrum/out_20200826_20200820/accuracy/20200826_20200820_elevation_NASADEM_coreg_Deramp_d1.tif"
-dem_pre = xdem.DEM(dem_pre_path)
-dem_pos_path = "data/results/gjerdrum/out_20210715_20210709/accuracy/20210715_20210709_elevation_NASADEM_coreg_Deramp_d1.tif"
-dem_pos = xdem.DEM(dem_pos_path)
-ref_dem_path = "data/results/gjerdrum/auxfiles/NASADEM_60.047054289127395_11.007823261230051_60.07724219219788_11.088872048347087.tif"
-reference_dem = xdem.DEM(ref_dem_path)
+# Get DEM names
+dem_pre_name = args.dem_pre_path.split('/', -1)[-1].replace('.tif', '')
+dem_pos_name = args.dem_pos_path.split('/', -1)[-1].replace('.tif', '')
 
 # Assign no data value if needed
-# dem_pre.set_ndv(args.no_data_value)
-# dem_pos.set_ndv(args.no_data_value)
-dem_pre.set_ndv(-99999)
-dem_pos.set_ndv(-99999)
+dem_pre.set_nodata(args.no_data_value)
+dem_pos.set_nodata(args.no_data_value)
 
 # Reproject reference DEM to S1 DEM
 dem_pos = dem_pos.reproject(dem_pre)
 reference_dem = reference_dem.reproject(dem_pre)
 
 # Unstable areas
-# unstable = gu.Vector(args.unstable_area_path)
-unstable = gu.Vector("data/aoi/gjerdrum_unstable_area.gpkg")
+unstable = gu.Vector(args.unstable_area_path)
 unstable = gu.Vector(unstable.ds.to_crs(dem_pre.crs))
 
 dh = dem_pos - dem_pre
-dh.save('test.tif')
+dh.save(os.path.join(
+    args.output_dir,
+    "dod_" + dem_pos_name + "_" + dem_pre_name+".tif"
+))
 mask = ~unstable.create_mask(dem_pre)
 
 ref_pre = (reference_dem - dem_pre).data[mask]
@@ -152,7 +141,7 @@ def calc_volume_error(area_tot, prop_error):
 
 # Write error measurements to CSV file
 header = [
-    'dem_pos', 'dem_pre',
+    'dem_pre', 'dem_pos',
     'ref_dem',
     'nmad_dem_pre_m', 'nmad_dem_pos_m',
     'sde_dem_pre_m', 'sde_dem_pos_m',
@@ -164,7 +153,7 @@ header = [
 ]
 
 csv_file = os.path.join(
-    # args.output_dir,
+    args.output_dir,
     "volume_estimates.csv"
 )
 
@@ -182,10 +171,8 @@ with open(csv_file, 'a', encoding='UTF8') as f:
     diff_nm = ['total', 'source', 'deposition']
     for i in range(3):
         data = [
-            # args.dem_pre_path, args.dem_pos_path,
-            # args.reference_dem_path,
-            dem_pre_path, dem_pos_path,
-            ref_dem_path,
+            args.dem_pre_path, args.dem_pos_path,
+            args.ref_dem_path,
             nmad_pre, nmad_pos,
             sde_pre, sde_pos,
             diff_nm[i], calc_total_area(diff_ls[i]), calc_volume(diff_ls[i]),
@@ -196,9 +183,14 @@ with open(csv_file, 'a', encoding='UTF8') as f:
         ]
         writer.writerow(data)
 
-plt.title('Elevation difference (m) in landslide area\nPost-event - Pre-event')
-plt.hist(difference, bins=np.linspace(-50, 50, 100))
-plt.savefig("test.png")
+plt.title('Elevation difference (m) in landslide area\nPost-event minus Pre-event')
+plt.hist(difference, bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100))
+plt.savefig(
+    os.path.join(
+        args.output_dir,
+        "elevdiff_" + dem_pos_name + "_" + dem_pre_name + "_hist.png"
+    )
+)
 
 dem_ls = [dem_pre, dem_pos, dh]
 # Plot
@@ -213,8 +205,7 @@ cmaps = ['viridis', 'viridis', 'PuOr']
 vlims = [(None, None) for i in range(3)]
 vlims[0] = [np.nanmin(dem_pre.data), np.nanmax(dem_pre.data)]
 vlims[1] = vlims[0]
-vlims[2] = [-50, 50]
-# vlims[2] = [-args.elev_diff_min_max, args.elev_diff_min_max]
+vlims[2] = [-args.elev_diff_min_max, args.elev_diff_min_max]
 labels = [
     'Elevation (m)',
     'Elevation (m)',
@@ -245,17 +236,7 @@ for i in range(3):
 
 plt.savefig(
     os.path.join(
-        # args.output_dir,
-        "elevation_difference" + ".png"
+        args.output_dir,
+        "elevdiff_" + dem_pos_name + "_" + dem_pre_name + ".png"
     )
 )
-# Calculate DoD between post- and pre-event DEMs
-# Function to compute volumes
-# def compute_volume(pos, pre, ref, prefix):
-    # Calculate DEM error (dh)
-    # dh = pos - pre
-    # dh_file = os.path.join(
-    #     args.output_dir,
-    #     prefix + ".tif"
-    # )
-    # dh.save(dh_file)
