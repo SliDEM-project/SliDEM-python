@@ -1,4 +1,9 @@
 # v0.1.0 (develop)
+## 05.10.2022
+### Changes
+- 3_assess_accuracy.py has slightly changed input parameters.
+- `set_ndv` was replaced by `set_nodata`
+
 ## 21.09.2022
 ### Added
 - Upgrade to SNAP-9
@@ -6,7 +11,6 @@
   - **Important!** call scripts as `scripts/___.py` instead of `home/scripts/___.py`
 ### Changed
 - `demcoreg` is no longer supported
-### Fixed
 
 ## 10.08.2022
 ### Added
@@ -18,7 +22,7 @@
 ### Changed
 - Pipelines renamed
 ### Fixed
-- `argparser` boolean type #37
+- `argparser` boolean type [#37](https://github.com/SliDEM-project/SliDEM-python/issues/37)
 # v0.0.1
 ## 01.08.2022
 - First implementation 
