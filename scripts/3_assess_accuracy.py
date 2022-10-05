@@ -147,7 +147,6 @@ else:
 
 s1_dem_name = s1_dem_path.split('/', -1)[-1].replace('.tif', '')
 
-
 # Error assessment with xdem
 reference_dem = xdem.DEM(args.ref_dem_path)
 s1_dem = xdem.DEM(s1_dem_path)
@@ -257,15 +256,15 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     attr_list = ["hillshade", "slope", "aspect", "curvature",
                  "terrain_ruggedness_index", "rugosity"]
     attributes_ref_dem = xdem.terrain.get_terrain_attribute(
-            dem=ref.data,
-            resolution=dh.res,
-            attribute=attr_list
-        )
+        dem=ref.data,
+        resolution=dh.res,
+        attribute=attr_list
+    )
     attributes_src_dem = xdem.terrain.get_terrain_attribute(
-            dem=src.data,
-            resolution=dh.res,
-            attribute=attr_list
-        )
+        dem=src.data,
+        resolution=dh.res,
+        attribute=attr_list
+    )
 
     # Plot attributes for ref and src
     def plot_attr(dem, attributes):
@@ -403,7 +402,6 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
     # if coreg_filename is not None:
 
 
-
 def coregister_func(coregister_name):
     match coregister_name:
         case "NuthKaab":
@@ -467,7 +465,7 @@ def coregister(src, ref, coreg_type):
               f"NMAD after: {nmad_after:.2f} m")
     plt.hist(dh_before,
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
-             alpha=0.75,  label="Before coregistration")
+             alpha=0.75, label="Before coregistration")
     plt.hist(dh_after, facecolor='g',
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
              alpha=0.75, label="After coregistration")
