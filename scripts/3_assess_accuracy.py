@@ -145,7 +145,7 @@ else:
     s1_dem_path = glob.glob(os.path.join(args.s1_dem_dir,
                                          str("*_elevation.tif")))[0]
 
-s1_dem_name = s1_dem_path.split('/', -1)[-1].replace('.tif', '')
+s1_dem_name = os.path.basename(s1_dem_path).split('.')[0]
 
 # Error assessment with xdem
 reference_dem = xdem.DEM(args.ref_dem_path)
@@ -245,13 +245,12 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             prefix + ".png"
         )
     )
+    plt.close()
 
-    dh = gu.Raster(dh_file)
     mask = ~unstable.create_mask(dh)
 
     # Keep only stable terrain data
     dh.set_mask(np.invert(mask))
-
     # Compute terrain attributes for reference DEM
     attr_list = ["hillshade", "slope", "aspect", "curvature",
                  "terrain_ruggedness_index", "rugosity"]
@@ -294,6 +293,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         return plt
 
     plot_attr_ref = plot_attr(ref, attributes_ref_dem)
+
     plot_attr_ref.savefig(
         os.path.join(
             accuracy_dir,
@@ -301,6 +301,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         ),
         dpi=300, bbox_inches='tight'
     )
+    plot_attr_ref.close()
 
     plot_attr_src = plot_attr(src, attributes_src_dem)
     plot_attr_src.savefig(
@@ -310,6 +311,19 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         ),
         dpi=300, bbox_inches='tight'
     )
+    plot_attr_src.close()
+
+    if coreg_filename is not None:
+        coreg_fn = os.path.basename(coreg_filename).split('.')[0]
+        plot_attr_crg = plot_attr(src, attributes_src_dem)
+        plot_attr_crg.savefig(
+            os.path.join(
+                accuracy_dir,
+                "terrain_attributes_" + coreg_fn + ".png"
+            ),
+            dpi=300, bbox_inches='tight'
+        )
+        plot_attr_crg.close()
 
     # Compute measures
     # Write error measures data to csv file
@@ -324,7 +338,8 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             np.nanmin(dh.data), np.nanmax(dh.data), np.nanmean(dh.data),
             np.nanstd(dh.data),
             np.nanmean(np.abs(dh.data)),
-            np.sqrt((dh.data ** 2).mean()), xdem.spatialstats.nmad(dh.data)
+            np.sqrt((dh.data ** 2).mean()),
+            xdem.spatialstats.nmad(dh.data)
         ]
         # write the data
         writer.writerow(data)
@@ -369,6 +384,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         ),
         dpi=300, bbox_inches='tight'
     )
+    plt.close()
 
     xdem.spatialstats.plot_1d_binning(
         df_ns, 'aspect', 'nmad',
@@ -383,6 +399,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
         ),
         dpi=300, bbox_inches='tight'
     )
+    plt.close()
 
     if args.lulc_path is not None:
         xdem.spatialstats.plot_1d_binning(
@@ -398,8 +415,7 @@ def compute_errors(src, ref, prefix, coreg_filename=None):
             ),
             dpi=300, bbox_inches='tight'
         )
-
-    # if coreg_filename is not None:
+        plt.close()
 
 
 def coregister_func(coregister_name):
@@ -426,10 +442,11 @@ def coregister_func(coregister_name):
 
 def coregister(src, ref, coreg_type):
     coregister_function = coregister_func(coreg_type)
-    unstable_mask = ~unstable.create_mask(ref)
+    dh = ref - src
+    mask = ~unstable.create_mask(dh)
     coregister_function.fit(
         ref.data, src.data,
-        inlier_mask=unstable_mask,
+        inlier_mask=mask,
         transform=ref.transform
     )
     out = xdem.DEM.from_array(
@@ -455,18 +472,21 @@ def coregister(src, ref, coreg_type):
         prefix_after,
         coreg_filename=filename
     )
-    dh_before = (ref - src).data[np.invert(unstable_mask)]
-    dh_after = (ref - s1_dem_coregistered).data[np.invert(unstable_mask)]
-    nmad_before = xdem.spatialstats.nmad(dh_before)
-    nmad_after = xdem.spatialstats.nmad(dh_after)
+    dh_before = (ref - src)
+    dh_before.set_mask(np.invert(mask))
+    dh_after = (ref - s1_dem_coregistered)
+    dh_after.set_mask(np.invert(mask))
+    nmad_before = xdem.spatialstats.nmad(dh_before.data)
+    nmad_after = xdem.spatialstats.nmad(dh_after.data)
     # Make histogram with values before and after coregistration
     plt.figure(figsize=(6, 6.7), dpi=300.0, tight_layout=True)
     plt.title(f"NMAD before: {nmad_before:.2f} m, "
               f"NMAD after: {nmad_after:.2f} m")
-    plt.hist(dh_before,
+    plt.xlabel(f"Elevation difference (m)")
+    plt.hist(dh_before.data.flatten(),
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
              alpha=0.75, label="Before coregistration")
-    plt.hist(dh_after, facecolor='g',
+    plt.hist(dh_after.data.flatten(), facecolor='g',
              bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100),
              alpha=0.75, label="After coregistration")
     plt.legend(loc='upper right')
@@ -477,11 +497,9 @@ def coregister(src, ref, coreg_type):
         ),
         dpi=300, bbox_inches='tight'
     )
+    plt.close()
     return out
 
-
-# Compute errors before coregistration
-compute_errors(s1_dem, reference_dem, prefix_before)
 
 # Coregister and compute errors
 if args.coregister:
@@ -489,3 +507,6 @@ if args.coregister:
     for c in args.coregistration_method:
         s1_dem_coreg = coregister(s1_dem, reference_dem, c)
         coreg_list.append(s1_dem_coreg)
+
+# Compute errors before coregistration
+compute_errors(s1_dem, reference_dem, prefix_before)
