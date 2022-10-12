@@ -122,11 +122,11 @@ difference.save(os.path.join(
 ))
 
 difference_source = difference.copy()
-mask_source = difference_source.data < 0
+mask_source = difference_source.data > 0
 difference_source.set_mask(mask_source)
 
 difference_depost = difference.copy()
-mask_depost = difference_depost.data > 0
+mask_depost = difference_depost.data < 0
 difference_depost.set_mask(mask_depost)
 
 area_pixel = dem_pre.res[0] * dem_pre.res[1]
