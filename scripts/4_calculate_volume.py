@@ -84,8 +84,8 @@ dem_pos = xdem.DEM(args.dem_pos_path)
 reference_dem = xdem.DEM(args.ref_dem_path)
 
 # Get DEM names
-dem_pre_name = args.dem_pre_path.split('/', -1)[-1].replace('.tif', '')
-dem_pos_name = args.dem_pos_path.split('/', -1)[-1].replace('.tif', '')
+dem_pre_name = os.path.basename(args.dem_pre_path).split('.')[0]
+dem_pos_name = os.path.basename(args.dem_pos_path).split('.')[0]
 
 # Assign no data value if needed
 dem_pre.set_nodata(args.no_data_value)
@@ -102,37 +102,56 @@ unstable = gu.Vector(unstable.ds.to_crs(dem_pre.crs))
 dh = dem_pos - dem_pre
 dh.save(os.path.join(
     args.output_dir,
-    "dod_" + dem_pos_name + "_" + dem_pre_name+".tif"
+    "dod_" + dem_pos_name + "_" + dem_pre_name + ".tif"
 ))
 mask = ~unstable.create_mask(dem_pre)
 
-ref_pre = (reference_dem - dem_pre).data[mask]
-ref_pos = (reference_dem - dem_pos).data[mask]
+# Compute errors only on stable terrain
+ref_pre = (reference_dem - dem_pre)
+ref_pre.set_mask(np.invert(mask))
 
-difference = dh.data[np.invert(mask)]
-difference_source = difference[difference < 0]
-difference_depost = difference[difference > 0]
+ref_pos = (reference_dem - dem_pos)
+ref_pos.set_mask(np.invert(mask))
 
-area = dem_pre.res[0] * dem_pre.res[1]
+# Compute elevation difference on unstable terrain
+difference = dh.copy()
+difference.set_mask(mask)
+difference.save(os.path.join(
+    args.output_dir,
+    "dod_" + dem_pos_name + "_" + dem_pre_name + "_crop.tif"
+))
+
+difference_source = difference.copy()
+mask_source = difference_source.data < 0
+difference_source.set_mask(mask_source)
+
+difference_depost = difference.copy()
+mask_depost = difference_depost.data > 0
+difference_depost.set_mask(mask_depost)
+
+area_pixel = dem_pre.res[0] * dem_pre.res[1]
 
 n_tot = dem_pre.shape[0] * dem_pre.shape[1]
 n = np.sqrt(n_tot * dem_pre.res[0])/(2 * (20 * dem_pre.res[0]))
-sde_pre = np.nanstd(ref_pre)/n
-sde_pos = np.nanstd(ref_pos)/n
+sde_pre = np.nanstd(ref_pre.data)/n
+sde_pos = np.nanstd(ref_pos.data)/n
 prop_error_sde = np.sqrt((sde_pre ** 2) + (sde_pos ** 2))
 
-
-nmad_pre = xdem.spatialstats.nmad(ref_pre)
-nmad_pos = xdem.spatialstats.nmad(ref_pos)
+nmad_pre = xdem.spatialstats.nmad(ref_pre.data)
+nmad_pos = xdem.spatialstats.nmad(ref_pos.data)
 prop_error_nmad = np.sqrt((nmad_pre ** 2) + (nmad_pos ** 2))
 
 
 def calc_total_area(diff):
-    return np.count_nonzero(diff) * area
+    return (np.count_nonzero(diff.data) - np.sum(np.isnan(diff.get_nanarray()))) * area_pixel
+
+
+def calc_pixels(diff):
+    return np.count_nonzero(diff.data) - np.sum(np.isnan(diff.get_nanarray()))
 
 
 def calc_volume(diff):
-    return np.nansum(diff) * area
+    return np.nansum(diff.data * area_pixel)
 
 
 def calc_volume_error(area_tot, prop_error):
@@ -145,7 +164,7 @@ header = [
     'ref_dem',
     'nmad_dem_pre_m', 'nmad_dem_pos_m',
     'sde_dem_pre_m', 'sde_dem_pos_m',
-    'zone', 'area_m2', 'vol_m3',
+    'zone', 'area_m2', 'pixels', 'vol_m3',
     'nmad_prop_err_m',
     'vol_error_nmad_m3',
     'sde_prop_err_m',
@@ -175,7 +194,10 @@ with open(csv_file, 'a', encoding='UTF8') as f:
             args.ref_dem_path,
             nmad_pre, nmad_pos,
             sde_pre, sde_pos,
-            diff_nm[i], calc_total_area(diff_ls[i]), calc_volume(diff_ls[i]),
+            diff_nm[i],
+            calc_total_area(diff_ls[i]),
+            calc_pixels(diff_ls[i]),
+            calc_volume(diff_ls[i]),
             prop_error_nmad,
             calc_volume_error(calc_total_area(diff_ls[i]), prop_error_nmad),
             prop_error_sde,
@@ -184,13 +206,15 @@ with open(csv_file, 'a', encoding='UTF8') as f:
         writer.writerow(data)
 
 plt.title('Elevation difference (m) in landslide area\nPost-event minus Pre-event')
-plt.hist(difference, bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100))
+plt.hist(difference.data.flatten(),
+         bins=np.linspace(-args.elev_diff_min_max, args.elev_diff_min_max, 100))
 plt.savefig(
     os.path.join(
         args.output_dir,
         "elevdiff_" + dem_pos_name + "_" + dem_pre_name + "_hist.png"
     )
 )
+plt.close()
 
 dem_ls = [dem_pre, dem_pos, dh]
 # Plot
@@ -240,3 +264,4 @@ plt.savefig(
         "elevdiff_" + dem_pos_name + "_" + dem_pre_name + ".png"
     )
 )
+plt.close()
