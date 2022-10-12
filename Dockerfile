@@ -7,16 +7,6 @@ ENV LC_ALL=C
 ## Move local packages to tmp file
 COPY setup/requirements.txt /tmp/base_requirements.txt
 
-# Update snap-tools (skip for snap-9)
-# If not running locally GitHub Actions will take care of compiling,
-# only pulling the image from DockerHub is needed then
-## This line results in an infinite loop, better use the .sh
-# RUN /usr/local/snap/bin/snap --nosplash --nogui --modules --refresh --update-all
-
-# When not running behind a firewall, uncomment the next two lines
-# COPY setup/update-snap.sh /tmp/update-snap.sh
-# RUN bash /tmp/update-snap.sh
-
 ## Install requirements for python
 RUN python3.6 -m pip install --upgrade pip
 RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.txt
