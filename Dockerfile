@@ -1,8 +1,5 @@
 # Get docker container from mundialis
-# SNAP-8
-# FROM mundialis/esa-snap:ubuntu
-# SNAP-9
-FROM loreabad6/esa-snap:ubuntu
+FROM mundialis/esa-snap:ubuntu
 
 # set locale
 ENV LC_ALL=C
