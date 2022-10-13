@@ -290,3 +290,10 @@ We are working to improve all these issues but
 for the moment please be aware and patient with us :pray: 
 
 Feel free to open an issue if you find some new bug or have any request!
+
+## Acknowledgements
+
+This work is supported by the Austrian Research Promotion Agency (FFG)
+through the project [SliDEM](https://projekte.ffg.at/projekt/4052533) (Assessing the suitability of DEMs derived
+from Sentinel-1 for landslide volume estimation; contract no. 885370).
+
