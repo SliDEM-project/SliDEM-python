@@ -4,21 +4,22 @@ FROM mundialis/esa-snap:ubuntu
 # set locale
 ENV LC_ALL=C
 
-## Move local packages to tmp file
-COPY setup/requirements.txt /tmp/base_requirements.txt
-
-## Install requirements for python
-RUN python3.6 -m pip install --upgrade pip
-RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.txt
-
 # Install stsa
 RUN git clone https://github.com/pbrotoisworo/s1-tops-split-analyzer.git
 ## After certain updates, support for python 3.6 was taken away, but I still need it!
 ## So I go back to a previous version (December 2021)
 WORKDIR ./s1-tops-split-analyzer
 RUN git reset --hard 12ea576989cce7cbff5569ece6d17df52a17b0a9
+RUN python3.6 -m pip install --upgrade pip
 RUN python3.6 -m pip install -e .
 WORKDIR ..
+
+## Move local packages to tmp file
+COPY setup/requirements.txt /tmp/base_requirements.txt
+
+## Install requirements for python
+RUN python3.6 -m pip install --upgrade pip
+RUN python3.6 -m pip install --no-cache-dir --upgrade -r /tmp/base_requirements.txt
 
 # Install snaphu
 RUN wget --no-check-certificate  \

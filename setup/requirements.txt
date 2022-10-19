@@ -1,3 +1,4 @@
 sentinelsat
 python-dotenv
 asf_search
+geopandas==0.9.0
