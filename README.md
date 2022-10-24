@@ -293,6 +293,9 @@ for the moment please be aware and patient with us :pray:
 
 Feel free to open an issue if you find some new bug or have any request!
 
+Please refer to our [contributing guide](https://github.com/SliDEM-project/SliDEM-python/blob/main/CONTRIBUTING.md) for further info.
+
+
 ## Acknowledgements
 
 This work is supported by the Austrian Research Promotion Agency (FFG)
