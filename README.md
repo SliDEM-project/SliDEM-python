@@ -8,7 +8,7 @@ Assessing the suitability of DEMs derived from Sentinel-1 for landslide volume e
 ## Goal
 The overall goal of SliDEM is to assess the potential for determining landslide volumes based on digital elevation models (DEMs) derived from Sentinel-1 SAR data. Therefore, we will develop a low-cost, transferable, semi-automated method implemented within a Python package based on open-source tools. 
 
-Find the project updates on [ResearchGate](https://www.researchgate.net/project/SliDEM-Assessing-the-suitability-of-DEMs-derived-from-Sentinel-1-for-landslide-volume-estimation) and check our [Publications & Conference proceedings[(https://github.com/SliDEM-project/SliDEM-python/wiki/Publications-&-Conferences) for more details.
+Find the project updates on [ResearchGate](https://www.researchgate.net/project/SliDEM-Assessing-the-suitability-of-DEMs-derived-from-Sentinel-1-for-landslide-volume-estimation) and check our [Publications & Conference proceedings](https://github.com/SliDEM-project/SliDEM-python/wiki/Publications-&-Conferences) for more details.
 
 ---
 
