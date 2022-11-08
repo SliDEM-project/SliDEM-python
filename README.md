@@ -3,21 +3,25 @@
 <img src="figs/logo.png" align="right" width="150" />
 
 # SliDEM
-Development of the SliDEM Python package for the SliDEM project
+Assessing the suitability of DEMs derived from Sentinel-1 for landslide volume estimation.
 
-This project was presented at FOSS4G 2022. See the slides [here](https://drive.google.com/file/d/1tc5K_Rwd8wFz1pvrpZXZ7StEUtlCWMeJ/view). 
+## Goal
+The overall goal of SliDEM is to assess the potential for determining landslide volumes based on digital elevation models (DEMs) derived from Sentinel-1 SAR data. Therefore, we will develop a low-cost, transferable, semi-automated method implemented within a Python package based on open-source tools. 
 
+Find the project updates on [ResearchGate](https://www.researchgate.net/project/SliDEM-Assessing-the-suitability-of-DEMs-derived-from-Sentinel-1-for-landslide-volume-estimation) and check our [Publications & Conference proceedings[(https://github.com/SliDEM-project/SliDEM-python/wiki/Publications-&-Conferences) for more details.
 
 ---
 
 **NOTES!** 
 
-Even if we call it the SliDEM package, the structure of a package is not there yet. We are currently developing this repository actively and hope to have a working package soon. 
+Even if we call it the SliDEM package, the structure of a package is not there yet. 
+We are currently developing this repository actively and hope to have a working package soon. 
 
 **We have implemented a [changelog](CHANGELOG.md)**, please check it frequently for updates, including new ways to call 
 the scripts or changes in parameters. 
 
-Currently, we present a series of executable scripts to run within a Docker container. You will see the instructions on how to set it up and start running the scripts below. 
+Currently, we present a series of executable scripts to run within a Docker container. 
+You will see the instructions on how to set it up and start running the scripts below. 
 
 ---
 ## Setup
