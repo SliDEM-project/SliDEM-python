@@ -302,7 +302,7 @@ Please refer to our [contributing guide](https://github.com/SliDEM-project/SliDE
 
 ## Acknowledgements
 
-This work is supported by the Austrian Research Promotion Agency (FFG)
+<img src="https://www.ffg.at/sites/default/files/allgemeine_downloads/Logos_2018/FFG_Logo_EN_black_1000px.png" align="left" width="120" /> This work is supported by the Austrian Research Promotion Agency (FFG)
 through the project [SliDEM](https://projekte.ffg.at/projekt/4052533) (Assessing the suitability of DEMs derived
 from Sentinel-1 for landslide volume estimation; contract no. 885370).
 
