@@ -307,7 +307,7 @@ through the project [SliDEM](https://projekte.ffg.at/projekt/4052533) (Assessing
 from Sentinel-1 for landslide volume estimation; contract no. 885370).
 
 ## Copyright
-Copyright 2022 Department of Geoinformatics – Z_GIS
+Copyright 2022 Department of Geoinformatics – Z_GIS, University of Salzburg
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
